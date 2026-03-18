@@ -44,7 +44,8 @@ const Welcome = NiceModal.create(() => {
 
         <Paper shadow="none" radius="md" withBorder p="lg">
           <Stack gap="sm">
-            <Text className="text-center">{t('Select and configure an AI model provider')}</Text>
+            {/* 不显示提示配置 */}
+            {/* <Text className="text-center">{t('Select and configure an AI model provider')}</Text> */}
             <Button
               size="lg"
               h={54}

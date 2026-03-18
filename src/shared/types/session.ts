@@ -1,6 +1,6 @@
 import type { LanguageModelUsage } from 'ai'
 import { z } from 'zod'
-import { SessionSettingsSchema } from '../types/settings'
+import { SessionSettingsSchema } from './settings'
 import { ModelProviderEnum } from './provider'
 
 // Re-export for backward compatibility
@@ -161,7 +161,7 @@ export const MessageStatusSchema = z.discriminatedUnion('type', [
 // Define a custom function type for cancel
 const CancelFunctionSchema = z.custom<(() => void) | undefined>(
   (val) => val === undefined || typeof val === 'function',
-  { message: 'Must be a function or undefined' }
+  { message: 'Must be a function or undefined' },
 )
 
 const MessageUsageSchema = z.object({

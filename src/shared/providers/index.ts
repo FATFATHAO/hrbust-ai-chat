@@ -3,23 +3,24 @@ import type { Config, ProviderModelInfo, SessionSettings, Settings } from '../ty
 import type { ModelDependencies } from '../types/adapters'
 // ChatboxAI must be imported first to ensure it appears at the top of provider lists
 // Import order determines display order in UI (side-effect registration into Map)
-import './definitions/chatboxai'
-import './definitions/openai'
-import './definitions/openai-responses'
-import './definitions/gemini'
-import './definitions/claude'
-import './definitions/deepseek'
-import './definitions/siliconflow'
-import './definitions/openrouter'
-import './definitions/ollama'
-import './definitions/lmstudio'
-import './definitions/azure'
-import './definitions/groq'
-import './definitions/xai'
-import './definitions/mistral-ai'
-import './definitions/perplexity'
-import './definitions/volcengine'
-import './definitions/chatglm'
+import './definitions/hrbust'
+// import './definitions/chatboxai'
+// import './definitions/openai'
+// import './definitions/openai-responses'
+// import './definitions/gemini'
+// import './definitions/claude'
+// import './definitions/deepseek'
+// import './definitions/siliconflow'
+// import './definitions/openrouter'
+// import './definitions/ollama'
+// import './definitions/lmstudio'
+// import './definitions/azure'
+// import './definitions/groq'
+// import './definitions/xai'
+// import './definitions/mistral-ai'
+// import './definitions/perplexity'
+// import './definitions/volcengine'
+// import './definitions/chatglm'
 import {
   clearProviderRegistry,
   defineProvider,
@@ -54,7 +55,7 @@ export function getProviderSettings(setting: SessionSettings, globalSettings: Se
 
   const registryProviders = getSystemProviders()
   const providerBaseInfo = [...registryProviders, ...(globalSettings.customProviders || [])].find(
-    (p) => p.id === provider
+    (p) => p.id === provider,
   )
 
   if (!providerBaseInfo) {
@@ -104,7 +105,7 @@ export function getModel(
   settings: SessionSettings,
   globalSettings: Settings,
   config: Config,
-  dependencies: ModelDependencies
+  dependencies: ModelDependencies,
 ): ModelInterface {
   console.debug('getModel (registry)', settings.provider, settings.modelId)
 
@@ -154,7 +155,7 @@ export function getModel(
         model,
       },
       providerBaseInfo.type,
-      dependencies
+      dependencies,
     )
   }
 

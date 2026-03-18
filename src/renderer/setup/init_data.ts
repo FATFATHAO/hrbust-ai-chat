@@ -26,7 +26,9 @@ async function initSessionsIfNeeded() {
 async function initPresetSessions() {
   const lang = await platform.getLocale().catch((e) => 'en')
 
-  const defaultSessions = lang.startsWith('zh') ? defaultSessionsForCN : defaultSessionsForEN
+  // const defaultSessions = lang.startsWith('zh') ? defaultSessionsForCN : defaultSessionsForEN
+
+  const defaultSessions = defaultSessionsForCN
 
   for (const session of defaultSessions) {
     await storage.setItemNow(StorageKeyGenerator.session(session.id), session)

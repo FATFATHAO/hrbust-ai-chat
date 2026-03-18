@@ -1,4 +1,4 @@
-import KnowledgeBasePage from '@/components/knowledge-base/dify/KnowledgeBase'
+import KnowledgeBasePage from '@/components/knowledge-base/coze/KnowledgeBase'
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/knowledge-base')({

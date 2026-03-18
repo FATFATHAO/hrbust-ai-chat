@@ -6,7 +6,7 @@ import type {
   ProviderSettings,
   SessionType,
 } from '../../../shared/types'
-import * as remote from '../../packages/remote'
+import * as remote from '../remote'
 import type { ModelSettingUtil } from './interface'
 
 export default abstract class BaseConfig implements ModelSettingUtil {
@@ -15,7 +15,7 @@ export default abstract class BaseConfig implements ModelSettingUtil {
     model: string,
     sessionType: SessionType,
     providerSettings?: ProviderSettings,
-    providerBaseInfo?: ProviderBaseInfo
+    providerBaseInfo?: ProviderBaseInfo,
   ): Promise<string>
 
   protected abstract listProviderModels(settings: ProviderSettings): Promise<ProviderModelInfo[]>
@@ -100,7 +100,7 @@ export default abstract class BaseConfig implements ModelSettingUtil {
     try {
       // 检查模型信息是否完整，只查询信息不完整的模型
       const incompleteModels = models.filter(
-        (model) => !model.type || !model.capabilities || !model.contextWindow || !model.maxOutput
+        (model) => !model.type || !model.capabilities || !model.contextWindow || !model.maxOutput,
       )
 
       if (incompleteModels.length === 0) {

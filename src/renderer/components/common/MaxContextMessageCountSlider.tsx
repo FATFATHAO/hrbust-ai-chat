@@ -2,11 +2,11 @@ import { Flex, Slider, Stack, type StackProps, Text, TextInput, type TextProps, 
 import { IconInfoCircle } from '@tabler/icons-react'
 import { type ChangeEvent, type KeyboardEvent, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ScalableIcon } from '../common/ScalableIcon'
+import { ScalableIcon } from './ScalableIcon'
 
 export function toBeRemoved_getContextMessageCount(
   openaiMaxContextMessageCount: number,
-  maxContextMessageCount?: number
+  maxContextMessageCount?: number,
 ) {
   return typeof maxContextMessageCount === 'number'
     ? maxContextMessageCount
@@ -53,7 +53,7 @@ export default function MaxContextMessageCountSlider({ value, onChange, classNam
         onChange?.(MESSAGE_COUNT_OPTIONS[v])
       }, 100)
     },
-    [onChange]
+    [onChange],
   )
 
   const [tempInputValue, setTempInputValue] = useState<string>()
@@ -91,7 +91,7 @@ export default function MaxContextMessageCountSlider({ value, onChange, classNam
         </Text>
         <Tooltip
           label={t(
-            'Regulate the volume of historical messages sent to the AI, striking a harmonious balance between depth of comprehension and the efficiency of responses.'
+            'Regulate the volume of historical messages sent to the AI, striking a harmonious balance between depth of comprehension and the efficiency of responses.',
           )}
           withArrow={true}
           maw={320}

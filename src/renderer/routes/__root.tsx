@@ -82,7 +82,7 @@ function Root() {
         // 是否需要弹出设置窗口
         initialized.current = true
         if (settingActions.needEditSetting() && location.pathname !== '/settings/mcp') {
-          await NiceModal.show('welcome')
+          // await NiceModal.show('welcome')
           return
         }
         // 是否需要弹出关于窗口（更新后首次启动）

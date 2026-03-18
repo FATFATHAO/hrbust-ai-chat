@@ -55,7 +55,7 @@
   "All threads": "所有话题",
   "already existed": "已存在",
   "An abstract painting with vibrant colors": "色彩鲜艳的抽象画",
-  "An easy-to-use AI client app": "一个简单易用的 AI 客户端应用",
+  "An easy-to-use AI client app": "政策解读的好帮手",
   "An error occurred while processing your request. Please try again later. If this error continues, please send an email to hi@chatboxai.com for support.": "处理您的请求时发生错误。请稍后再试。如果此错误持续发生，请发送电子邮件至 hi@chatboxai.com 以获得支持。",
   "An error occurred while sending the message.": "消息发送失败。",
   "An MCP server implementation that provides a tool for dynamic and reflective problem-solving through a structured thinking process.": "一个 MCP 服务器实现，提供一个工具，用于通过结构化思维过程进行动态和反思性问题解决。",
@@ -955,3 +955,4 @@
   "Your license has expired. You can continue using your quota pack.": "您的许可证已过期。您可以继续使用您的配额包。",
   "Your rating on the App Store would help make Chatbox even better!": "您的 App Store 评分将帮助 Chatbox 变得更好！"
 }
+

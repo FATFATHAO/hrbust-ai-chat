@@ -28,7 +28,7 @@ export const Route = createFileRoute('/')({
   validateSearch: zodValidator(
     z.object({
       copilotId: z.string().optional(),
-    })
+    }),
   ),
 })
 
@@ -65,7 +65,7 @@ function Index() {
   const selectedCopilotId = useMemo(() => session?.copilotId, [session?.copilotId])
   const selectedCopilot = useMemo(
     () => myCopilots.find((c) => c.id === selectedCopilotId) || remoteCopilots.find((c) => c.id === selectedCopilotId),
-    [myCopilots, remoteCopilots, selectedCopilotId]
+    [myCopilots, remoteCopilots, selectedCopilotId],
   )
   useEffect(() => {
     setSession((old) => ({
@@ -139,7 +139,7 @@ function Index() {
       sessionWebBrowsingMap,
       setSessionWebBrowsing,
       clearSessionWebBrowsing,
-    ]
+    ],
   )
 
   const onSelectModel = useCallback((p: string, m: string) => {
@@ -177,51 +177,51 @@ function Index() {
           </Text>
         </Stack>
 
-        {!providers.length && (
-          <Box px="sm">
-            <Paper
-              radius="md"
-              shadow="none"
-              withBorder
-              py="md"
-              px="sm"
-              mb="md"
-              className={widthFull ? 'w-full' : 'w-full max-w-4xl mx-auto'}
-            >
-              <Stack gap="sm">
-                <Stack gap="xxs" align="center">
-                  <Text fw={600} className="text-center">
-                    {t('Select and configure an AI model provider')}
-                  </Text>
-
-                  <Text size="xs" c="chatbox-tertiary" className="text-center">
-                    {t(
-                      'To start a conversation, you need to configure at least one AI model. Click the buttons below to get started.'
-                    )}
-                  </Text>
-                </Stack>
-
-                <Flex gap="xs" justify="center" align="center">
-                  <Button
-                    size="xs"
-                    variant="light"
-                    h={32}
-                    miw={160}
-                    fw={600}
-                    flex="0 1 auto"
-                    onClick={() => {
-                      router.navigate({
-                        to: isSmallScreen ? '/settings/provider' : '/settings/chatbox-ai',
-                      })
-                    }}
-                  >
-                    {t('Setup Provider')}
-                  </Button>
-                </Flex>
-              </Stack>
-            </Paper>
-          </Box>
-        )}
+        {/* {!providers.length && ( */}
+        {/*   <Box px="sm"> */}
+        {/*     <Paper */}
+        {/*       radius="md" */}
+        {/*       shadow="none" */}
+        {/*       withBorder */}
+        {/*       py="md" */}
+        {/*       px="sm" */}
+        {/*       mb="md" */}
+        {/*       className={widthFull ? 'w-full' : 'w-full max-w-4xl mx-auto'} */}
+        {/*     > */}
+        {/*       <Stack gap="sm"> */}
+        {/*         <Stack gap="xxs" align="center"> */}
+        {/*           <Text fw={600} className="text-center"> */}
+        {/*             {t('Select and configure an AI model provider')} */}
+        {/*           </Text> */}
+        {/**/}
+        {/*           <Text size="xs" c="chatbox-tertiary" className="text-center"> */}
+        {/*             {t( */}
+        {/*               'To start a conversation, you need to configure at least one AI model. Click the buttons below to get started.' */}
+        {/*             )} */}
+        {/*           </Text> */}
+        {/*         </Stack> */}
+        {/**/}
+        {/*         <Flex gap="xs" justify="center" align="center"> */}
+        {/*           <Button */}
+        {/*             size="xs" */}
+        {/*             variant="light" */}
+        {/*             h={32} */}
+        {/*             miw={160} */}
+        {/*             fw={600} */}
+        {/*             flex="0 1 auto" */}
+        {/*             onClick={() => { */}
+        {/*               router.navigate({ */}
+        {/*                 to: isSmallScreen ? '/settings/provider' : '/settings/chatbox-ai', */}
+        {/*               }) */}
+        {/*             }} */}
+        {/*           > */}
+        {/*             {t('Setup Provider')} */}
+        {/*           </Button> */}
+        {/*         </Flex> */}
+        {/*       </Stack> */}
+        {/*     </Paper> */}
+        {/*   </Box> */}
+        {/* )} */}
 
         <Stack gap="sm">
           {session.copilotId ? (
@@ -287,12 +287,12 @@ const CopilotPicker = ({ selectedId, onSelect }: { selectedId?: string; onSelect
               .filter((c) => !myCopilots.map((mc) => mc.id).includes(c.id))
               .slice(0, MAX_COPILOTS_TO_SHOW - myCopilots.length - 1),
           ],
-    [myCopilots, remoteCopilots]
+    [myCopilots, remoteCopilots],
   )
 
   const showMoreButton = useMemo(
     () => copilots.length < myCopilots.length + remoteCopilots.length,
-    [copilots.length, myCopilots.length, remoteCopilots.length]
+    [copilots.length, myCopilots.length, remoteCopilots.length],
   )
 
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -378,7 +378,7 @@ const CopilotPicker = ({ selectedId, onSelect }: { selectedId?: string; onSelect
                 />
               ) : (
                 <Divider key="divider" orientation="vertical" my="xs" mx="xxs" />
-              )
+              ),
             )}
             {showMoreButton && (
               <CopilotItem
@@ -424,7 +424,7 @@ const CopilotItem = ({
       bg={selected ? 'var(--chatbox-background-brand-secondary)' : 'transparent'}
       className={clsx(
         'cursor-pointer shrink-0 shadow-[0px_2px_12px_0px_rgba(0,0,0,0.04)]',
-        isSmallScreen ? 'rounded-full' : 'rounded-md'
+        isSmallScreen ? 'rounded-full' : 'rounded-md',
       )}
       onClick={onClick}
     >

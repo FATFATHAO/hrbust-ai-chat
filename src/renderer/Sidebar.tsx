@@ -77,7 +77,7 @@ export default function Sidebar() {
       resizeStartX.current = e.clientX
       resizeStartWidth.current = sidebarWidth
     },
-    [isSmallScreen, sidebarWidth]
+    [isSmallScreen, sidebarWidth],
   )
 
   useEffect(() => {
@@ -196,7 +196,7 @@ export default function Sidebar() {
             leftSection={<ScalableIcon icon={IconBook} size={20} />}
             onClick={() => {
               navigate({
-                to: '/knowledge-base'
+                to: '/knowledge-base',
               })
               if (isSmallScreen) {
                 setShowSidebar(false)
@@ -237,36 +237,37 @@ export default function Sidebar() {
           {/*     p="xs" */}
           {/*   /> */}
           {/* )} */}
-          <NavLink
-            c="chatbox-tertiary"
-            className="rounded"
-            label={
-              <Flex align="center" gap={6}>
-                <span>{`${t('About')} ${/\d/.test(versionHook.version) ? `(${versionHook.version})` : ''}`}</span>
-                {CHATBOX_BUILD_PLATFORM === 'android' && versionHook.needCheckUpdate && (
-                  <Box w={8} h={8} miw={8} bg="chatbox-brand" style={{ borderRadius: '50%' }} />
-                )}
-              </Flex>
-            }
-            leftSection={<ScalableIcon icon={IconInfoCircle} size={20} />}
-            onClick={() => {
-              navigate({
-                to: '/about',
-              })
-              if (isSmallScreen) {
-                setShowSidebar(false)
-              }
-            }}
-            variant="light"
-            p="xs"
-          />
+          {/* 不要关于页面 */}
+          {/* <NavLink */}
+          {/*   c="chatbox-tertiary" */}
+          {/*   className="rounded" */}
+          {/*   label={ */}
+          {/*     <Flex align="center" gap={6}> */}
+          {/*       <span>{`${t('About')} ${/\d/.test(versionHook.version) ? `(${versionHook.version})` : ''}`}</span> */}
+          {/*       {CHATBOX_BUILD_PLATFORM === 'android' && versionHook.needCheckUpdate && ( */}
+          {/*         <Box w={8} h={8} miw={8} bg="chatbox-brand" style={{ borderRadius: '50%' }} /> */}
+          {/*       )} */}
+          {/*     </Flex> */}
+          {/*   } */}
+          {/*   leftSection={<ScalableIcon icon={IconInfoCircle} size={20} />} */}
+          {/*   onClick={() => { */}
+          {/*     navigate({ */}
+          {/*       to: '/about', */}
+          {/*     }) */}
+          {/*     if (isSmallScreen) { */}
+          {/*       setShowSidebar(false) */}
+          {/*     } */}
+          {/*   }} */}
+          {/*   variant="light" */}
+          {/*   p="xs" */}
+          {/* /> */}
         </Stack>
         {!isSmallScreen && (
           <Box
             onMouseDown={handleResizeStart}
             className={clsx(
               `sidebar-resizer absolute top-0 bottom-0 w-1 cursor-col-resize z-[1] bg-chatbox-border-primary opacity-0 hover:opacity-70 transition-opacity duration-200`,
-              language === 'ar' ? '-left-1' : '-right-1'
+              language === 'ar' ? '-left-1' : '-right-1',
             )}
           />
         )}
