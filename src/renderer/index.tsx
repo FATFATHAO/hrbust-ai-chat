@@ -116,7 +116,7 @@ const tid = setTimeout(() => {
       <ErrorBoundary>
         <InitPage />
       </ErrorBoundary>
-    </StrictMode>
+    </StrictMode>,
   )
   if (platform.type === 'mobile') {
     SplashScreen.hide()
@@ -145,7 +145,7 @@ initializeApp()
             <RouterProvider router={router} />
           </QueryClientProvider>
         </ErrorBoundary>
-      </StrictMode>
+      </StrictMode>,
     )
 
     if (platform.type === 'mobile') {

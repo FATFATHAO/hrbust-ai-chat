@@ -30,6 +30,7 @@
     "dev": "pnpm start",
     "dev:local": "cross-env USE_LOCAL_API=true pnpm start",
     "dev:web": "cross-env DEV_WEB_ONLY=true CHATBOX_BUILD_PLATFORM=web pnpm start",
+    "dev:web-pure": "cross-env DEV_WEB_ONLY=true CHATBOX_BUILD_PLATFORM=web vite ./src/renderer --port 1212",
     "dev:debug": "cross-env MAIN_ARGS=\"--inspect=5858\" pnpm start",
     "start": "electron-vite dev",
     "start:main": "cross-env NODE_ENV=development electronmon -r ts-node/register/transpile-only .",

@@ -1,6 +1,7 @@
 import { ActionIcon, Box, Button, Flex, Image, NavLink, Stack, Text, Tooltip } from '@mantine/core'
 import SwipeableDrawer from '@mui/material/SwipeableDrawer'
 import {
+  IconBook,
   IconCirclePlus,
   IconCode,
   IconInfoCircle,
@@ -24,7 +25,7 @@ import useVersion from './hooks/useVersion'
 import { navigateToSettings } from './modals/Settings'
 import { trackingEvent } from './packages/event'
 import platform from './platform'
-import icon from './static/icon.png'
+import icon from './static/logo-top.png'
 import { useLanguage } from './stores/settingsStore'
 import { useUIStore } from './stores/uiStore'
 import { CHATBOX_BUILD_PLATFORM } from './variables'
@@ -140,12 +141,12 @@ export default function Sidebar() {
             <Flex
               align="center"
               gap="sm"
-              onClick={() => platform.openLink('https://chatboxai.app/')}
+              // onClick={() => platform.openLink('#')}
               style={{ cursor: 'pointer' }}
             >
               <Image src={icon} w={20} h={20} />
               <Text span c="chatbox-secondary" size="xl" lh={1.2} fw="700">
-                Chatbox
+                HRBUST
               </Text>
             </Flex>
             {FORCE_ENABLE_DEV_PAGES && <ThemeSwitchButton size="xs" />}
@@ -167,19 +168,35 @@ export default function Sidebar() {
               <ScalableIcon icon={IconCirclePlus} className="mr-2" />
               {t('New Chat')}
             </Button>
-            <Button variant="light" fullWidth onClick={handleCreateNewPictureSession}>
-              <ScalableIcon icon={IconPhotoPlus} className="mr-2" />
-              {t('Create Image')}
-            </Button>
+            {/* <Button variant="light" fullWidth onClick={handleCreateNewPictureSession}> */}
+            {/*   <ScalableIcon icon={IconPhotoPlus} className="mr-2" /> */}
+            {/*   {t('Create Image')} */}
+            {/* </Button> */}
           </Stack>
+          {/* <NavLink */}
+          {/*   c="chatbox-secondary" */}
+          {/*   className="rounded" */}
+          {/*   label={t('My Copilots')} */}
+          {/*   leftSection={<ScalableIcon icon={IconMessageChatbot} size={20} />} */}
+          {/*   onClick={() => { */}
+          {/*     navigate({ */}
+          {/*       to: '/copilots', */}
+          {/*     }) */}
+          {/*     if (isSmallScreen) { */}
+          {/*       setShowSidebar(false) */}
+          {/*     } */}
+          {/*   }} */}
+          {/*   variant="light" */}
+          {/*   p="xs" */}
+          {/* /> */}
           <NavLink
             c="chatbox-secondary"
             className="rounded"
-            label={t('My Copilots')}
-            leftSection={<ScalableIcon icon={IconMessageChatbot} size={20} />}
+            label={t('Knowledge Base')}
+            leftSection={<ScalableIcon icon={IconBook} size={20} />}
             onClick={() => {
               navigate({
-                to: '/copilots',
+                to: '/knowledge-base'
               })
               if (isSmallScreen) {
                 setShowSidebar(false)
@@ -202,24 +219,24 @@ export default function Sidebar() {
             variant="light"
             p="xs"
           />
-          {FORCE_ENABLE_DEV_PAGES && (
-            <NavLink
-              c="chatbox-secondary"
-              className="rounded"
-              label="Dev Tools"
-              leftSection={<ScalableIcon icon={IconCode} size={20} />}
-              onClick={() => {
-                navigate({
-                  to: '/dev',
-                })
-                if (isSmallScreen) {
-                  setShowSidebar(false)
-                }
-              }}
-              variant="light"
-              p="xs"
-            />
-          )}
+          {/* {FORCE_ENABLE_DEV_PAGES && ( */}
+          {/*   <NavLink */}
+          {/*     c="chatbox-secondary" */}
+          {/*     className="rounded" */}
+          {/*     label="Dev Tools" */}
+          {/*     leftSection={<ScalableIcon icon={IconCode} size={20} />} */}
+          {/*     onClick={() => { */}
+          {/*       navigate({ */}
+          {/*         to: '/dev', */}
+          {/*       }) */}
+          {/*       if (isSmallScreen) { */}
+          {/*         setShowSidebar(false) */}
+          {/*       } */}
+          {/*     }} */}
+          {/*     variant="light" */}
+          {/*     p="xs" */}
+          {/*   /> */}
+          {/* )} */}
           <NavLink
             c="chatbox-tertiary"
             className="rounded"

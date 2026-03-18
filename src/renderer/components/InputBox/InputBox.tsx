@@ -26,6 +26,7 @@ import {
   IconAlertCircle,
   IconArrowBackUp,
   IconArrowUp,
+  IconBook,
   IconChevronRight,
   IconCirclePlus,
   IconFilePencil,
@@ -132,6 +133,64 @@ export type InputBoxProps = {
   onStartNewThread?(): boolean
   onRollbackThread?(): boolean
   onClickSessionSettings?(): boolean | Promise<boolean>
+}
+
+const DifyDocMenu: React.FC<{
+  onSelectDoc: (fileName: string) => void
+}> = ({ onSelectDoc }) => {
+  const [files, setFiles] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+
+  // 只有当菜单打开时，才去动态拉取最新的文件列表
+  const loadFiles = async () => {
+    setLoading(true)
+    try {
+      // @ts-ignore
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8001'
+      const res = await fetch(`${API_BASE_URL}/api/files/list`)
+      if (!res.ok) throw new Error('拉取失败')
+      const data = await res.json()
+
+      // 只过滤出解析完成的文档（绿灯状态），没解析完的不让选
+      setFiles(data.files?.filter((f: any) => f.status === 'completed') || [])
+    } catch (e) {
+      console.error('拉取文档列表失败', e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Menu shadow="md" onOpen={loadFiles} withinPortal position="top-start">
+      <Menu.Target>
+        <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
+          <IconBook size={18} strokeWidth={1.8} className="text-[var(--chatbox-tint-brand)]" />
+          <span className="text-xs text-[var(--chatbox-tint-brand)] font-medium">引经据典</span>
+        </UnstyledButton>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Label>请选择要引用的知识库文档</Menu.Label>
+        {loading ? (
+          <Menu.Item disabled>
+            <Loader size="xs" color="blue" className="mx-auto my-2" />
+          </Menu.Item>
+        ) : files.length === 0 ? (
+          <Menu.Item disabled>暂无解析完成的文档</Menu.Item>
+        ) : (
+          files.map(file => (
+            <Menu.Item
+              key={file.id}
+              onClick={() => onSelectDoc(file.name)}
+              className="max-w-[300px] truncate"
+              title={file.name}
+            >
+              📄 {file.name}
+            </Menu.Item>
+          ))
+        )}
+      </Menu.Dropdown>
+    </Menu>
+  )
 }
 
 const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
@@ -928,8 +987,8 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                 className={cn(
                   'shrink-0 mb-1',
                   !generating &&
-                    (disableSubmit || isPreprocessing || isSubmitting || isCompactionRunning) &&
-                    'disabled:!opacity-100 !text-white'
+                  (disableSubmit || isPreprocessing || isSubmitting || isCompactionRunning) &&
+                  'disabled:!opacity-100 !text-white'
                 )}
                 style={
                   !generating && (disableSubmit || isPreprocessing || isSubmitting || isCompactionRunning)
@@ -1033,11 +1092,24 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
 
               {/* Left Group: Tool Buttons */}
               <Flex align="center" gap={0}>
-                <AttachmentMenu
-                  onImageUploadClick={onImageUploadClick}
-                  onFileUploadClick={onFileUploadClick}
-                  handleAttachLink={handleAttachLink}
-                  t={t}
+                {/* <AttachmentMenu */}
+                {/*   onImageUploadClick={onImageUploadClick} */}
+                {/*   onFileUploadClick={onFileUploadClick} */}
+                {/*   handleAttachLink={handleAttachLink} */}
+                {/*   t={t} */}
+                {/* /> */}
+
+                <DifyDocMenu
+                  onSelectDoc={(fileName) => {
+                    // 构造一条提示词，追加到现有的输入框内容后面
+                    const citationText = `\n\n【指令：请结合知识库中的文档《${fileName}》来回答本次问题】`;
+                    // 模拟输入框的 onChange 事件，把文本塞进去
+                    const syntheticEvent = {
+                      target: { value: messageInput + citationText }
+                    } as React.ChangeEvent<HTMLTextAreaElement>;
+                    onMessageInput(syntheticEvent);
+                    dom.focusMessageInput(); // 塞完文字后自动聚焦输入框，体验拉满！
+                  }}
                 />
 
                 {featureFlags.mcp && (
@@ -1077,23 +1149,23 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   </KnowledgeBaseMenu>
                 )}
 
-                <Tooltip label={t('Web Search')} position="top" withArrow disabled={isSmallScreen}>
-                  <UnstyledButton
-                    onClick={() => {
-                      setWebBrowsingMode(!webBrowsingMode)
-                      dom.focusMessageInput()
-                    }}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors"
-                  >
-                    <IconWorldWww
-                      size={toolbarIconSize}
-                      strokeWidth={1.8}
-                      className={
-                        webBrowsingMode ? 'text-[var(--chatbox-tint-brand)]' : 'text-[var(--chatbox-tint-secondary)]'
-                      }
-                    />
-                  </UnstyledButton>
-                </Tooltip>
+                {/* <Tooltip label={t('Web Search')} position="top" withArrow disabled={isSmallScreen}> */}
+                {/*   <UnstyledButton */}
+                {/*     onClick={() => { */}
+                {/*       setWebBrowsingMode(!webBrowsingMode) */}
+                {/*       dom.focusMessageInput() */}
+                {/*     }} */}
+                {/*     className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors" */}
+                {/*   > */}
+                {/*     <IconWorldWww */}
+                {/*       size={toolbarIconSize} */}
+                {/*       strokeWidth={1.8} */}
+                {/*       className={ */}
+                {/*         webBrowsingMode ? 'text-[var(--chatbox-tint-brand)]' : 'text-[var(--chatbox-tint-secondary)]' */}
+                {/*       } */}
+                {/*     /> */}
+                {/*   </UnstyledButton> */}
+                {/* </Tooltip> */}
 
                 {!isSmallScreen &&
                   (showRollbackThreadButton ? (
@@ -1198,9 +1270,8 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   <Flex
                     align="center"
                     gap="2"
-                    className={`text-xs cursor-pointer hover:text-chatbox-tint-secondary transition-colors px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] ${
-                      tokenPercentage && tokenPercentage > 80 ? 'text-red-500' : 'text-chatbox-tint-tertiary'
-                    }`}
+                    className={`text-xs cursor-pointer hover:text-chatbox-tint-secondary transition-colors px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] ${tokenPercentage && tokenPercentage > 80 ? 'text-red-500' : 'text-chatbox-tint-tertiary'
+                      }`}
                   >
                     <ScalableIcon icon={IconArrowUp} size={14} />
                     {isCalculating && <Loader size={10} />}

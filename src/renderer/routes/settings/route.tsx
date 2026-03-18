@@ -26,44 +26,40 @@ import platform from '@/platform'
 import { featureFlags } from '@/utils/feature-flags'
 
 const ITEMS = [
-  {
-    key: 'chatbox-ai',
-    label: 'Chatbox AI',
-    icon: <IconSparkles className="w-full h-full" />,
-  },
+  // {
+  //   key: 'chatbox-ai',
+  //   label: 'Chatbox AI',
+  //   icon: <IconSparkles className="w-full h-full" />,
+  // },
   {
     key: 'provider',
     label: 'Model Provider',
     icon: <IconCategory className="w-full h-full" />,
   },
-  {
-    key: 'default-models',
-    label: 'Default Models',
-    icon: <IconBox className="w-full h-full" />,
-  },
-  {
-    key: 'web-search',
-    label: 'Web Search',
-    icon: <IconWorldWww className="w-full h-full" />,
-  },
-  ...(featureFlags.mcp
-    ? [
-        {
-          key: 'mcp',
-          label: 'MCP',
-          icon: <IconCircleDottedLetterM className="w-full h-full" />,
-        },
-      ]
-    : []),
-  ...(featureFlags.knowledgeBase
-    ? [
-        {
-          key: 'knowledge-base',
-          label: 'Knowledge Base',
-          icon: <IconBook className="w-full h-full" />,
-        },
-      ]
-    : []),
+  // {
+  //   key: 'default-models',
+  //   label: 'Default Models',
+  //   icon: <IconBox className="w-full h-full" />,
+  // },
+  // {
+  //   key: 'web-search',
+  //   label: 'Web Search',
+  //   icon: <IconWorldWww className="w-full h-full" />,
+  // },
+  // ...(featureFlags.mcp
+  //   ? [
+  //       {
+  //         key: 'mcp',
+  //         label: 'MCP',
+  //         icon: <IconCircleDottedLetterM className="w-full h-full" />,
+  //       },
+  //     ]
+  //   : []),
+  // {
+  //   key: 'knowledge-base',
+  //   label: 'Knowledge Base',
+  //   icon: <IconBook className="w-full h-full" />,
+  // },
   {
     key: 'document-parser',
     label: 'Document Parser',
@@ -77,12 +73,12 @@ const ITEMS = [
   ...(platform.type === 'mobile'
     ? []
     : [
-        {
-          key: 'hotkeys',
-          label: 'Keyboard Shortcuts',
-          icon: <IconKeyboard className="w-full h-full" />,
-        },
-      ]),
+      {
+        key: 'hotkeys',
+        label: 'Keyboard Shortcuts',
+        icon: <IconKeyboard className="w-full h-full" />,
+      },
+    ]),
   {
     key: 'general',
     label: 'General Settings',
