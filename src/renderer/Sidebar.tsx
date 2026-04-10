@@ -9,6 +9,7 @@ import {
   IconMessageChatbot,
   IconPhotoPlus,
   IconSettingsFilled,
+  IconTableShortcut,
 } from '@tabler/icons-react'
 import { useNavigate } from '@tanstack/react-router'
 import clsx from 'clsx'
@@ -197,6 +198,22 @@ export default function Sidebar() {
             onClick={() => {
               navigate({
                 to: '/knowledge-base',
+              })
+              if (isSmallScreen) {
+                setShowSidebar(false)
+              }
+            }}
+            variant="light"
+            p="xs"
+          />
+          <NavLink
+            c="chatbox-secondary"
+            className="rounded"
+            label="Excel 分析"
+            leftSection={<ScalableIcon icon={IconTableShortcut} size={20} />}
+            onClick={() => {
+              navigate({
+                to: '/excel',
               })
               if (isSmallScreen) {
                 setShowSidebar(false)

@@ -36,6 +36,7 @@ import {
   store,
 } from './store-node'
 import * as windowState from './window_state'
+import { AppUpdater } from './app-updater'
 
 const knowledgeBaseInitPromise = import('./knowledge-base/index.js')
   .then((mod) => mod.getInitPromise())
