@@ -244,31 +244,35 @@ function ExcelPage() {
 
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
-      let buffer = ''
 
       if (reader) {
+        let accumulatedBuffer = '' // 使用独立的累加器
+
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
 
-          buffer += decoder.decode(value, { stream: true })
+          accumulatedBuffer += decoder.decode(value, { stream: true })
 
-          // 极其健壮的行切分逻辑：处理不同操作系统的换行符
-          let boundary = buffer.indexOf('\n\n')
-          while (boundary !== -1) {
-            const line = buffer.slice(0, boundary).trim()
-            buffer = buffer.slice(boundary + 2)
+          // 按行切割，不依赖 \n\n，只依赖 \n
+          const lines = accumulatedBuffer.split('\n')
 
-            if (line.startsWith('data: ')) {
-              const jsonStr = line.slice(6)
-              try {
-                const event: StreamEvent = JSON.parse(jsonStr)
-                await handleStreamEvent(event, assistantMsgId)
-              } catch (e) {
-                console.error('[SSE解析失败]', jsonStr, e)
-              }
+          // 保留最后一行（可能是不完整的包），放回累加器
+          accumulatedBuffer = lines.pop() || ''
+
+          for (const line of lines) {
+            const trimmedLine = line.trim()
+            if (!trimmedLine || !trimmedLine.startsWith('data: ')) continue
+
+            const jsonStr = trimmedLine.slice(6)
+            try {
+              const event: StreamEvent = JSON.parse(jsonStr)
+              // 不使用 await，防止 React 渲染引擎卡死
+              handleStreamEvent(event, assistantMsgId)
+            } catch (e) {
+              // 如果解析失败，说明这个包可能真的碎了，记录但不要卡死循环
+              console.warn('[SSE解析跳过]', jsonStr)
             }
-            boundary = buffer.indexOf('\n\n')
           }
         }
       }
@@ -306,9 +310,9 @@ function ExcelPage() {
         })
         break
       case 'token':
-        setMessages((prev) =>
-          prev.map((m) => (m.id === msgId ? { ...m, content: m.content + (event.content || '') } : m))
-        )
+        // 如果内容为空则不更新，防止无意义的 React 重渲染
+        if (!event.content) break
+        setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, content: m.content + event.content } : m)))
         break
       case 'table_info':
         if (event.table_id) setActiveTableId(event.table_id)
@@ -483,15 +487,11 @@ function ExcelPage() {
                 <Text size="xs" fw={600} c="chatbox-tertiary">
                   知识库
                 </Text>
-                {kbInitializing && (
-                  <IconLoader2 size={12} className="animate-spin text-chatbox-brand" />
-                )}
+                {kbInitializing && <IconLoader2 size={12} className="animate-spin text-chatbox-brand" />}
               </Flex>
               {kbStats ? (
                 <Text size="xxs" c={kbStats.total_entries > 0 ? 'chatbox-success' : 'chatbox-tertiary'}>
-                  {kbStats.total_entries > 0
-                    ? `已加载 ${kbStats.total_entries} 条知识`
-                    : '暂无知识'}
+                  {kbStats.total_entries > 0 ? `已加载 ${kbStats.total_entries} 条知识` : '暂无知识'}
                 </Text>
               ) : (
                 <Text size="xxs" c="chatbox-tertiary">

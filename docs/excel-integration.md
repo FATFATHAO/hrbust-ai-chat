@@ -173,6 +173,67 @@ const resizeObserver = new ResizeObserver(() => chart.resize())
 
 ## 已知问题与修复
 
+### 6. 流式响应"复读机"问题（疯狂重复显示）
+
+**问题描述**: SSE 流式响应时，页面出现"为了获取...为了获取..."这种指数级增长的复读内容，或者页面看起来像死机了一样不显示任何内容。
+
+**原因分析**:
+1. 原代码使用 `indexOf('\n\n')` 在 while 循环中查找 SSE 消息边界，当数据包被截断或包含多个 `\n\n` 时，会导致同一段 buffer 内容被反复处理
+2. 在 while 循环中使用 `await handleStreamEvent()` 会阻塞循环，导致 React 渲染引擎挂起
+3. `setMessages` 在高频调用时没有做变更检测，每次都触发重渲染，最终 UI 假死
+
+**修复方案**:
+1. 使用"行扫描法"替代 `indexOf('\n\n')` 循环：按 `\n` 分割，保留最后一行（可能不完整）到累加器
+2. 移除 `handleStreamEvent` 前的 `await`，防止阻塞
+3. 在 `handleStreamEvent` 的 `token` case 中添加空值检测：如果 `event.content` 为空则跳过更新
+
+**修改文件**: `src/renderer/routes/excel/index.tsx`
+
+**核心代码变更**:
+
+```typescript
+// 旧代码（有问题）
+if (reader) {
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary !== -1) {
+      const line = buffer.slice(0, boundary).trim()
+      buffer = buffer.slice(boundary + 2)
+      if (line.startsWith('data: ')) {
+        const event: StreamEvent = JSON.parse(line.slice(6))
+        await handleStreamEvent(event, assistantMsgId) // 阻塞 + 频繁更新
+      }
+      boundary = buffer.indexOf('\n\n')
+    }
+  }
+}
+
+// 新代码（修复后）
+if (reader) {
+  let accumulatedBuffer = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    accumulatedBuffer += decoder.decode(value, { stream: true })
+    const lines = accumulatedBuffer.split('\n')
+    accumulatedBuffer = lines.pop() || '' // 保留最后一行
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      if (!trimmedLine || !trimmedLine.startsWith('data: ')) continue
+      try {
+        const event: StreamEvent = JSON.parse(trimmedLine.slice(6))
+        handleStreamEvent(event, assistantMsgId) // 不 await
+      } catch (e) {
+        console.warn('[SSE解析跳过]', trimmedLine)
+      }
+    }
+  }
+}
+```
+
 ### 4. 流式响应中 NaN 值导致 JSON 解析错误
 
 **问题描述**: SSE 流式响应中包含 `NaN` 值时，前端解析 JSON 报错 `"There was an error parsing the body"`
