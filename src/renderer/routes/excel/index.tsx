@@ -206,22 +206,27 @@ function ExcelPage() {
     if (!inputValue.trim() || isProcessing || !activeTableId) return
 
     const userMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: `u-${Date.now()}`,
       role: 'user',
       content: inputValue.trim(),
       tableId: activeTableId,
       tableName: activeTable?.filename,
     }
 
-    setMessages((prev) => [...prev, userMessage])
+    const assistantMsgId = `a-${Date.now()}`
+    const placeholderAssistantMessage: ChatMessage = {
+      id: assistantMsgId,
+      role: 'assistant',
+      content: '',
+    }
+
+    // 核心修正：必须立刻添加助手占位符，否则后续 map 找不到 ID
+    setMessages((prev) => [...prev, userMessage, placeholderAssistantMessage])
     setInputValue('')
     setIsProcessing(true)
     setCurrentThinking(null)
     setThinkingFinished(false)
     setCurrentToolCalls([])
-
-    // Add placeholder assistant message
-    const assistantMsgId = (Date.now() + 1).toString()
 
     try {
       const res = await fetch(`${API_BASE}/chat/stream`, {
@@ -247,23 +252,28 @@ function ExcelPage() {
           if (done) break
 
           buffer += decoder.decode(value, { stream: true })
-          const lines = buffer.split('\n\n')
-          buffer = lines.pop() || ''
 
-          for (const line of lines) {
+          // 极其健壮的行切分逻辑：处理不同操作系统的换行符
+          let boundary = buffer.indexOf('\n\n')
+          while (boundary !== -1) {
+            const line = buffer.slice(0, boundary).trim()
+            buffer = buffer.slice(boundary + 2)
+
             if (line.startsWith('data: ')) {
+              const jsonStr = line.slice(6)
               try {
-                const event: StreamEvent = JSON.parse(line.slice(6))
+                const event: StreamEvent = JSON.parse(jsonStr)
                 await handleStreamEvent(event, assistantMsgId)
-              } catch {
-                // Skip malformed JSON
+              } catch (e) {
+                console.error('[SSE解析失败]', jsonStr, e)
               }
             }
+            boundary = buffer.indexOf('\n\n')
           }
         }
       }
     } catch (e) {
-      console.error('Chat error:', e)
+      console.error('网络请求失败:', e)
     } finally {
       setIsProcessing(false)
       setThinkingFinished(true)

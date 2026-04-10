@@ -173,6 +173,39 @@ const resizeObserver = new ResizeObserver(() => chart.resize())
 
 ## 已知问题与修复
 
+### 4. 流式响应中 NaN 值导致 JSON 解析错误
+
+**问题描述**: SSE 流式响应中包含 `NaN` 值时，前端解析 JSON 报错 `"There was an error parsing the body"`
+
+**原因**: `NaN` (Not a Number) 不是有效的 JSON 格式，但 Pandas 处理空单元格时会生成 `NaN` 值。`CustomJSONEncoder` 虽然处理了 `NaT` 和 `<NA>`，但没有处理 `NaN`
+
+**修复**: 在 `CustomJSONEncoder` 中添加 `NaN` 处理
+```python
+# 处理 NaN (Not a Number)
+if str(obj) in ('nan', 'NaN'):
+    return None
+```
+
+**修改文件**:
+- `src/excel_agent/api.py`
+- `src/excel_agent/stream.py`
+- `src/excel_agent/stream_backup.py`
+
+### 5. 流式消息不显示（缺少占位符）
+
+**问题描述**: 发送消息后，SSE 流正常返回，但页面上不显示助手消息
+
+**原因**:
+1. 助手消息占位符从未被添加到 `messages` 数组，导致 `prev.map()` 找不到 ID
+2. 行切分逻辑 `buffer.split('\n\n')` 不够健壮
+
+**修复**:
+1. 在发送请求前同时添加用户消息和助手占位符
+2. 使用 `indexOf('\n\n')` 替代 `split('\n\n')` 进行行切分
+3. 添加 SSE 解析失败的错误日志
+
+**修改文件**: `src/renderer/routes/excel/index.tsx`
+
 ### 1. ChartRenderer.tsx 中 useColorScheme 导入错误
 
 **问题描述**: 构建时提示 `"useColorScheme" is not exported by "@mantine/core"`

@@ -1,6 +1,5 @@
-import { Box, Paper, Text } from '@mantine/core'
-import { useComputedColorScheme } from '@mantine/core'
-import { useEffect, useRef, useMemo } from 'react'
+import { Box, Paper, Text, useComputedColorScheme } from '@mantine/core'
+import { useEffect, useMemo, useRef } from 'react'
 
 interface ChartRendererProps {
   chartConfig: Record<string, unknown>
@@ -30,10 +29,7 @@ export function ChartRenderer({ chartConfig, message, height = 400 }: ChartRende
       }
 
       // Create new chart instance
-      const chart = echarts.init(
-        containerRef.current,
-        colorScheme === 'dark' ? 'dark' : 'light',
-      )
+      const chart = echarts.init(containerRef.current, colorScheme === 'dark' ? 'dark' : 'light')
 
       chartInstanceRef.current = chart
 
@@ -70,18 +66,14 @@ export function ChartRenderer({ chartConfig, message, height = 400 }: ChartRende
           {message}
         </Text>
       )}
-      <Box
-        ref={containerRef}
-        style={{ width: '100%', height: `${height}px` }}
-        className="rounded-lg overflow-hidden"
-      />
+      <Box ref={containerRef} style={{ width: '100%', height: `${height}px` }} className="rounded-lg overflow-hidden" />
     </Paper>
   )
 }
 
 function applyThemeOverrides(
   config: Record<string, unknown>,
-  colorScheme: 'dark' | 'light' | 'auto',
+  colorScheme: 'dark' | 'light' | 'auto'
 ): Record<string, unknown> {
   if (colorScheme === 'light') {
     const textColor = '#1a1a2e'
