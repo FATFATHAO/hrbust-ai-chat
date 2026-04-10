@@ -42,7 +42,7 @@ export const hrbustProvider = defineProvider({
     )
   },
   getDisplayName: (modelId) => {
-    // 极其优雅的 UI 展示名称
+    // UI展示名称
     return `智能问答平台 (${modelId})`
   },
 })

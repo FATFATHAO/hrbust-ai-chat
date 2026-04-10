@@ -55,7 +55,7 @@ export function getProviderSettings(setting: SessionSettings, globalSettings: Se
 
   const registryProviders = getSystemProviders()
   const providerBaseInfo = [...registryProviders, ...(globalSettings.customProviders || [])].find(
-    (p) => p.id === provider,
+    (p) => p.id === provider
   )
 
   if (!providerBaseInfo) {
@@ -105,7 +105,7 @@ export function getModel(
   settings: SessionSettings,
   globalSettings: Settings,
   config: Config,
-  dependencies: ModelDependencies,
+  dependencies: ModelDependencies
 ): ModelInterface {
   console.debug('getModel (registry)', settings.provider, settings.modelId)
 
@@ -155,7 +155,7 @@ export function getModel(
         model,
       },
       providerBaseInfo.type,
-      dependencies,
+      dependencies
     )
   }
 

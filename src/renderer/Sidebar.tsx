@@ -25,7 +25,7 @@ import useVersion from './hooks/useVersion'
 import { navigateToSettings } from './modals/Settings'
 import { trackingEvent } from './packages/event'
 import platform from './platform'
-import icon from './static/logo-top.png'
+import icon from './static/Data-Development-Logo.png'
 import { useLanguage } from './stores/settingsStore'
 import { useUIStore } from './stores/uiStore'
 import { CHATBOX_BUILD_PLATFORM } from './variables'
@@ -145,8 +145,8 @@ export default function Sidebar() {
               style={{ cursor: 'pointer' }}
             >
               <Image src={icon} w={20} h={20} />
-              <Text span c="chatbox-secondary" size="xl" lh={1.2} fw="700">
-                HRBUST
+              <Text span c="chatbox-secondary" size="l" lh={1.2} fw="700">
+                数据发展集团有限公司
               </Text>
             </Flex>
             {FORCE_ENABLE_DEV_PAGES && <ThemeSwitchButton size="xs" />}
