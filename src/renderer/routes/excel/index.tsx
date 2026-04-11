@@ -1,5 +1,5 @@
 import '@mantine/dropzone/styles.css'
-import { ActionIcon, Box, Button, Flex, Paper, ScrollArea, Stack, Text, TextInput } from '@mantine/core'
+import { ActionIcon, Box, Button, Flex, Paper, ScrollArea, Stack, Text, TextInput, Table } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
 import { IconFileSpreadsheet, IconLoader2, IconTableShortcut, IconTrash, IconUpload, IconX } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
@@ -302,15 +302,17 @@ function ExcelPage() {
         break
       case 'tool_result':
         setCurrentToolCalls((prev) => {
+          if (prev.length === 0) return prev
           const updated = [...prev]
-          if (updated.length > 0) {
-            updated[updated.length - 1].result = event.result
-          }
+          const lastIndex = updated.length - 1
+          // 👈 绝对不能写 updated[lastIndex].result = event.result！必须生成新对象！
+          updated[lastIndex] = { ...updated[lastIndex], result: event.result }
           return updated
         })
         break
       case 'token':
-        // 如果内容为空则不更新，防止无意义的 React 重渲染
+        // 👈 只要第一个 Token 出来，立刻强行关闭思考状态，防止 UI 闪烁
+        if (!thinkingFinished) setThinkingFinished(true)
         if (!event.content) break
         setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, content: m.content + event.content } : m)))
         break
@@ -343,35 +345,72 @@ function ExcelPage() {
     return names[name] || name
   }
 
-  const formatToolResult = (result: unknown): string => {
+  // 把返回值类型从 string 改为 React.ReactNode
+  const formatToolResult = (result: unknown): React.ReactNode => {
     if (!result || typeof result !== 'object') return String(result)
 
     const r = result as Record<string, unknown>
 
-    // Chart result
-    if (r.chart) {
-      return `[图表: ${r.message || '已生成'}]`
-    }
+    if (r.chart) return `[图表: ${r.message || '已生成'}]`
 
-    // Aggregation result
     if (r.result !== undefined && r.column && r.function) {
       return `${r.column} 的 ${r.function}: ${r.result}`
     }
 
-    // Data list result
-    if (r.data && Array.isArray(r.data)) {
-      const total = r.total_rows || r.data.length
-      const returned = r.returned_rows || r.data.length
-      return `查询到 ${total} 条数据${returned < total ? ` (显示前 ${returned} 条)` : ''}`
-    }
-
-    // Column stats
     if (r.column && r.count !== undefined) {
       return `${r.column}: 总数 ${r.count}, 唯一值 ${r.unique_count || 'N/A'}`
     }
 
-    // Default JSON
-    return JSON.stringify(result, null, 2)
+    if (r.data && Array.isArray(r.data)) {
+      const total = r.total_rows || r.data.length
+      const returned = r.returned_rows || r.data.length
+      const cols = (r.columns as string[]) || Object.keys(r.data[0] || {})
+
+      return (
+        <Box mt="xs">
+          <Text size="xs" mb="xs" c="chatbox-tertiary">
+            {'查询到 ' + total + ' 条数据' + (returned < total ? ' (显示前 ' + returned + ' 条)' : '')}
+          </Text>
+
+          {/* 折叠预览面板，避免表格撑爆聊天框 */}
+          {r.data.length > 0 && (
+            <details style={{ cursor: 'pointer', marginTop: '4px' }}>
+              <summary style={{ fontSize: '12px', color: '#6366f1', fontWeight: 500, marginBottom: '8px' }}>
+                查看数据预览
+              </summary>
+              <ScrollArea w="100%" type="auto" mt="xs">
+                <Box style={{ minWidth: 600 }}>
+                  <Table striped highlightOnHover verticalSpacing="xs">
+                    <Table.Thead>
+                      <Table.Tr>
+                        {cols.map(c => <Table.Th key={c} style={{ whiteSpace: 'nowrap' }}>{c}</Table.Th>)}
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {r.data.map((row: any, i) => (
+                        <Table.Tr key={i}>
+                          {cols.map(c => (
+                            <Table.Td key={c} style={{ whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {row[c] === null || row[c] === undefined || row[c] === "" ? (
+                                 <Text c="dimmed" size="xs">-</Text>
+                              ) : (
+                                 String(row[c])
+                              )}
+                            </Table.Td>
+                          ))}
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Box>
+              </ScrollArea>
+            </details>
+          )}
+        </Box>
+      )
+    }
+
+    return <pre className="text-xs overflow-auto">{JSON.stringify(result, null, 2)}</pre>
   }
 
   return (
