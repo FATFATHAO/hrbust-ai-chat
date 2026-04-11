@@ -1,7 +1,7 @@
 import '@mantine/dropzone/styles.css'
-import { ActionIcon, Box, Button, Flex, Paper, ScrollArea, Stack, Text, TextInput, Table } from '@mantine/core'
+import { ActionIcon, Box, Button, Flex, Menu, Modal, Paper, ScrollArea, Stack, Text, TextInput, Table } from '@mantine/core'
 import { Dropzone } from '@mantine/dropzone'
-import { IconFileSpreadsheet, IconLoader2, IconTableShortcut, IconTrash, IconUpload, IconX } from '@tabler/icons-react'
+import { IconChevronDown, IconFileSpreadsheet, IconLoader2, IconTableShortcut, IconTrash, IconUpload, IconX } from '@tabler/icons-react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -18,6 +18,7 @@ interface TableInfo {
   id: string
   filename: string
   sheet_name: string
+  all_sheets?: string[]  // 所有工作表名称
   total_rows: number
   total_columns: number
   is_active: boolean
@@ -31,6 +32,7 @@ interface ChatMessage {
   content: string
   tableId?: string
   tableName?: string
+  toolCalls?: ToolCall[]  // 关联到每条消息的工具调用
 }
 
 interface ToolCall {
@@ -93,9 +95,14 @@ function ExcelPage() {
   const [kbStats, setKbStats] = useState<KnowledgeStats | null>(null)
   const [kbInitializing, setKbInitializing] = useState(false)
 
+  // Sheet selection state
+  const [pendingSheets, setPendingSheets] = useState<{ filename: string; allSheets: string[]; file: File } | null>(null)
+  const [sheetSelectModalOpen, setSheetSelectModalOpen] = useState(false)
+
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+  const currentStreamingMsgIdRef = useRef<string | null>(null)  // 跟踪当前正在流式传输的消息 ID
 
   const showSidebar = useUIStore((s) => s.showSidebar)
   const sidebarWidth = useUIStore((s) => s.sidebarWidth)
@@ -179,12 +186,44 @@ function ExcelPage() {
           const data = await res.json()
           if (data.tables) setTables(data.tables)
           if (data.table_id) setActiveTableId(data.table_id)
+
+          // 如果有多个工作表，弹出选择框
+          const allSheets = data.structure?.all_sheets || []
+          if (allSheets.length > 1) {
+            setPendingSheets({ filename: file.name, allSheets, file })
+            setSheetSelectModalOpen(true)
+          }
         }
       } catch (e) {
         console.error('Upload failed:', e)
       }
     }
     setUploadLoading(false)
+  }
+
+  // 加载指定工作表
+  const handleLoadSheet = async (sheetName: string) => {
+    if (!pendingSheets) return
+
+    setSheetSelectModalOpen(false)
+    setUploadLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', pendingSheets.file)
+      const res = await fetch(`${API_BASE}/upload?sheet_name=${encodeURIComponent(sheetName)}`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.tables) setTables(data.tables)
+        if (data.table_id) setActiveTableId(data.table_id)
+      }
+    } catch (e) {
+      console.error('Load sheet failed:', e)
+    }
+    setUploadLoading(false)
+    setPendingSheets(null)
   }
 
   const handleDeleteTable = async (tableId: string) => {
@@ -199,6 +238,25 @@ function ExcelPage() {
       }
     } catch (e) {
       console.error('Delete failed:', e)
+    }
+  }
+
+  const handleSwitchSheet = async (tableId: string, sheetName: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/tables/${tableId}/switch-sheet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheet_name: sheetName }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.tables) setTables(data.tables)
+        // 切换后清空当前对话，因为数据已变化
+        setMessages([])
+        setCurrentToolCalls([])
+      }
+    } catch (e) {
+      console.error('Switch sheet failed:', e)
     }
   }
 
@@ -227,6 +285,7 @@ function ExcelPage() {
     setCurrentThinking(null)
     setThinkingFinished(false)
     setCurrentToolCalls([])
+    currentStreamingMsgIdRef.current = assistantMsgId
 
     try {
       const res = await fetch(`${API_BASE}/chat/stream`, {
@@ -298,17 +357,37 @@ function ExcelPage() {
         break
       case 'tool_call':
         setThinkingFinished(true)
+        // 更新全局状态（用于流式传输中的实时显示）
         setCurrentToolCalls((prev) => [...prev, { name: event.name || '', args: event.args || {} }])
+        // 同时更新消息自身的 toolCalls（用于历史记录持久化）
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== msgId) return m
+            const toolCalls = [...(m.toolCalls || []), { name: event.name || '', args: event.args || {} }]
+            return { ...m, toolCalls }
+          })
+        )
         break
       case 'tool_result':
+        // 更新全局状态（用于流式传输中的实时显示）
         setCurrentToolCalls((prev) => {
           if (prev.length === 0) return prev
           const updated = [...prev]
           const lastIndex = updated.length - 1
-          // 👈 绝对不能写 updated[lastIndex].result = event.result！必须生成新对象！
           updated[lastIndex] = { ...updated[lastIndex], result: event.result }
           return updated
         })
+        // 同时更新消息自身的 toolCalls（用于历史记录持久化）
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== msgId) return m
+            const toolCalls = m.toolCalls || []
+            if (toolCalls.length === 0) return m
+            const newToolCalls = [...toolCalls]
+            newToolCalls[newToolCalls.length - 1] = { ...newToolCalls[newToolCalls.length - 1], result: event.result }
+            return { ...m, toolCalls: newToolCalls }
+          })
+        )
         break
       case 'token':
         // 👈 只要第一个 Token 出来，立刻强行关闭思考状态，防止 UI 闪烁
@@ -499,20 +578,49 @@ function ExcelPage() {
                             {table.filename}
                           </Text>
                           <Text size="xxs" c="chatbox-tertiary">
-                            {table.total_rows} 行 × {table.total_columns} 列
+                            {table.sheet_name} · {table.total_rows} 行 × {table.total_columns} 列
                           </Text>
                         </Box>
-                        <ActionIcon
-                          size="xs"
-                          variant="subtle"
-                          color="chatbox-tertiary"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteTable(table.id)
-                          }}
-                        >
-                          <IconX size={12} />
-                        </ActionIcon>
+                        {table.all_sheets && table.all_sheets.length > 1 ? (
+                          <Menu shadow="md" width={200}>
+                            <Menu.Target>
+                              <ActionIcon size="xs" variant="subtle" color="chatbox-tertiary" onClick={(e) => e.stopPropagation()}>
+                                <IconChevronDown size={14} />
+                              </ActionIcon>
+                            </Menu.Target>
+                            <Menu.Dropdown>
+                              <Menu.Label>切换工作表</Menu.Label>
+                              {table.all_sheets.map((sheet) => (
+                                <Menu.Item
+                                  key={sheet}
+                                  onClick={() => handleSwitchSheet(table.id, sheet)}
+                                  disabled={sheet === table.sheet_name}
+                                >
+                                  {sheet} {sheet === table.sheet_name && '✓'}
+                                </Menu.Item>
+                              ))}
+                              <Menu.Divider />
+                              <Menu.Item
+                                color="red"
+                                onClick={() => handleDeleteTable(table.id)}
+                              >
+                                删除表
+                              </Menu.Item>
+                            </Menu.Dropdown>
+                          </Menu>
+                        ) : (
+                          <ActionIcon
+                            size="xs"
+                            variant="subtle"
+                            color="chatbox-tertiary"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteTable(table.id)
+                            }}
+                          >
+                            <IconX size={12} />
+                          </ActionIcon>
+                        )}
                       </Flex>
                     </Paper>
                   ))}
@@ -611,7 +719,7 @@ function ExcelPage() {
                         )}
 
                         {/* Tool Calls */}
-                        {currentToolCalls.map((tool, idx) => (
+                        {(msg.toolCalls && msg.toolCalls.length > 0 ? msg.toolCalls : msg.id === currentStreamingMsgIdRef.current ? currentToolCalls : []).map((tool, idx) => (
                           <Paper
                             key={idx}
                             p="sm"
@@ -706,6 +814,32 @@ function ExcelPage() {
           </Box>
         </Box>
       </Flex>
+
+      {/* 工作表选择弹窗 */}
+      <Modal
+        opened={sheetSelectModalOpen}
+        onClose={() => setSheetSelectModalOpen(false)}
+        title="选择工作表"
+        centered
+        size="sm"
+      >
+        <Text size="sm" mb="md" c="dimmed">
+          文件 <strong>{pendingSheets?.filename}</strong> 包含多个工作表，请选择要加载的工作表：
+        </Text>
+        <Stack gap="xs">
+          {pendingSheets?.allSheets.map((sheet) => (
+            <Button
+              key={sheet}
+              variant="light"
+              fullWidth
+              onClick={() => handleLoadSheet(sheet)}
+              loading={uploadLoading}
+            >
+              {sheet}
+            </Button>
+          ))}
+        </Stack>
+      </Modal>
     </Page>
   )
 }
