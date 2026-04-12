@@ -307,6 +307,196 @@ source /usr/share/nvm/nvm.sh
 nvm use 20.20.1
 ```
 
+## 更新记录
+
+### 2026-04-11
+
+#### 功能更新
+
+1. **修复 Menu.Dropdown 滚动问题**
+   - **问题**: 当工作表数量很多时，Menu.Dropdown 下拉菜单无法滚动，导致选不到下方的选项
+   - **修复**: 给 `Menu.Dropdown` 添加 `style={{ maxHeight: 300, overflowY: 'auto' }}` 限制最大高度并启用滚动
+   - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+2. **添加清空所有表格功能**
+   - **功能**: 点击垃圾桶图标后新增下拉菜单，可选择"清空所有"一次性删除所有已上传的 Excel 文件
+   - **实现**: 调用 `POST /session/reset` API 重置 session
+   - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+3. **添加选择删除功能**
+   - **功能**: 点击垃圾桶图标后选择"选择删除"，弹出 Modal 界面勾选要删除的表格
+   - **实现**: 新增 `deleteSelectModalOpen` 和 `selectedDeleteIds` state，新增 `handleDeleteSelectedTables` 函数
+   - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+4. **修复多工作表上传重复问题**
+   - **问题**: 上传多工作表 Excel 文件时，后端会预加载第一个工作表，前端弹出选择框。但点击选择后，第一个表会重复出现在列表中
+   - **原因**: 上传响应返回的 `tables` 中已包含第一个表，选择其他表时后端返回的列表包含多个表，导致重复
+   - **修复**:
+     - `pendingSheets` state 新增 `preloadedTables` 和 `preloadedTableId` 字段存储预加载数据
+     - 多工作表时**不立即**调用 `setTables`，等用户选择后再添加
+     - 用户选择第一个表时直接使用预加载数据（不重复上传）
+     - 用户选择其他表时才上传 `?sheet_name=xxx`
+     - 关闭弹窗时默认加载预加载的第一个表
+   - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+5. **修复切换工作表后 sheet_name 不更新问题**
+   - **问题**: 点击下拉菜单切换工作表后，列表中显示的工作表名称没有立即更新
+   - **修复**: 在 `handleSwitchSheet` 中确保 `setTables` 后调用 `setActiveTableId` 更新状态，并在后端返回的 `tables` 中查找对应表格确认更新
+   - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+6. **添加历史会话功能**
+   - **功能**: 自动保存对话历史，支持跨会话加载和手动删除
+   - **存储方式**: JSON 文件（`data/sessions/{session_id}/history.json`），契合现有 session 管理架构
+   - **自动加载**: 打开页面时自动加载上次会话的对话历史
+   - **手动管理**: 点击历史图标可查看所有会话，选择加载或删除
+   - **API 端点**:
+     - `GET /session/history` - 获取当前 session 的对话历史
+     - `POST /session/history` - 保存对话历史
+     - `GET /sessions` - 列出所有会话（带元信息）
+     - `DELETE /sessions/{session_id}` - 删除指定会话
+   - **修改文件**:
+     - `src/excel_agent/history_manager.py` (新增)
+     - `src/excel_agent/api.py` (新增 API 端点)
+     - `src/renderer/routes/excel/index.tsx` (前端历史功能)
+
+7. **添加流式对话中断功能**
+   - **功能**: 用户可以随时中断正在生成的 AI 回复
+   - **实现**:
+     - 后端使用 `asyncio.Event` 作为全局取消标志
+     - `stream_chat` 函数在每次 yield 前检查取消标志
+     - 新增 `POST /chat/cancel` 端点设置取消标志
+     - 前端使用 `reader.cancel()` 中断 SSE 流
+     - 发送按钮在处理中变为取消按钮
+   - **API 端点**: `POST /chat/cancel` - 取消当前流式对话
+   - **修改文件**:
+     - `src/excel_agent/stream.py` (添加取消事件机制)
+     - `src/excel_agent/api.py` (添加取消端点)
+     - `src/renderer/routes/excel/index.tsx` (前端取消功能)
+
+8. **添加全新对话功能**
+   - **功能**: 点击按钮清空当前对话，开始新的分析对话
+   - **实现**: 新增 `handleNewConversation` 函数，点击 `+` 图标清空消息、思考状态、工具调用状态
+   - **位置**: 输入框左侧的 `+` 图标按钮
+   - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+9. **添加自动跟随底部功能**
+   - **功能**: 当用户在查看最新消息时自动跟随底部；当用户滚动到上方查看历史时停止自动滚动
+   - **实现**:
+     - 添加 `autoScroll` 状态控制是否自动滚动
+     - `handleMessagesScroll` 检测滚动位置，距离底部 < 100px 时开启自动滚动
+     - `scrollToBottom` 仅在 `autoScroll` 为 true 时才执行
+   - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+10. **修复历史记录保存/加载功能**
+    - **问题**: 历史记录保存后无法正确加载，消息丢失
+    - **原因**: `messages` 状态通过闭包捕获，在异步操作中可能不是最新值；`saveHistory` 和 `handleSendMessage` 都直接使用 `messages` 闭包值
+    - **修复**:
+      - 添加 `messagesRef` 保存消息引用
+      - 添加 `useEffect` 同步 `messages` 到 `messagesRef`
+      - `saveHistory` 使用 `messagesRef.current` 获取最新消息
+      - `handleSendMessage` 发送历史时使用 `messagesRef.current`
+      - `loadHistory` 加载后同步 `messagesRef.current = data.messages`
+    - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+11. **修复自动跟随底部功能**
+    - **问题**: 滚动检测不生效，无法自动跟随
+    - **原因**: Mantine ScrollArea 的滚动在内部 viewport 上，原来的 `chatContainerRef` 指向根元素而非可滚动元素
+    - **修复**:
+      - 使用 `viewportRef` 获取 ScrollArea 的可滚动 viewport 引用
+      - `scrollToBottom` 直接设置 `scrollTop = scrollHeight`
+      - 滚动监听器绑定到 `scrollViewportRef.current`
+    - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+12. **修复历史记录会话切换竞态条件**
+    - **问题**: 快速切换会话时，历史记录被覆盖或混淆
+    - **原因**:
+      - `setSessionId` 是非阻塞的，请求在其完成前就开始发送
+      - `messagesRef` 没有在切换时立即清空
+      - `saveHistory` 可能使用错误的 sessionId
+    - **修复**:
+      - 添加 `sessionIdRef` 保存当前 session ID，`loadSession` 时立即更新
+      - 添加 `saveInProgressRef` 追踪正在进行的保存操作
+      - `loadSession` 开始前等待之前的保存完成
+      - 切换会话时立即清空 `messagesRef.current` 和 `setMessages([])`
+      - 加载历史后同步 `messagesRef.current = loadedMessages`
+    - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+13. **修复历史记录被刷新覆盖问题（核心架构修复）**
+    - **问题**: 刷新页面后 React 状态重置为空数组 `[]`，用户可以在历史加载完成前发消息，导致只保存空状态的 2 条消息，覆盖后端完整历史
+    - **原因**: 前端是"失忆的老板"，后端是"盲从的管理员"——刷新后前端失忆，后端收到全量覆盖请求就把厚厚一本档案扔进碎纸机
+    - **修复**:
+      - 添加 `historyLoaded` 状态，追踪历史是否已加载完成
+      - `loadHistory` 的 `finally` 块中设置 `setHistoryLoaded(true)`，无论成功失败都要解锁输入
+      - `loadSession` 切换会话时先 `setHistoryLoaded(false)` 锁定输入，加载完后 `finally` 中解锁
+      - `TextInput` 和发送按钮的 `disabled` 条件增加 `!historyLoaded`
+      - 确保历史记录加载完成后，才允许用户输入
+    - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+14. **后端历史保存改为增量追加（防御性编程）**
+    - **问题**: `history.json` 只保存了当次对话的 2 条消息，刷新后历史被覆盖
+    - **原因**: 前端 `messagesRef.current` 在某些情况下（可能是时序问题）只包含当次对话消息，后端全量覆盖导致历史丢失
+    - **修复**:
+      - `history_manager.py` 的 `save_history` 改为**增量追加**而非全量覆盖
+      - 保存前先读取本地已有消息，按 `id` 去重，只追加不存在的新消息
+      - 即使前端漏发，后端已有消息也不会被覆盖
+    - **修改文件**: `src/excel_agent/history_manager.py`
+
+15. **修复全新对话按钮未创建新 session 的问题**
+    - **问题**: 点击 `➕` 开启全新对话后，新对话被追加到同一 session，刷新后两条对话合并为一条
+    - **原因**: `handleNewConversation` 只清空了前端 UI 状态，没有创建新 session
+    - **修复**:
+      - `handleNewConversation` 调用 `generateSessionId()` 创建新 session
+      - 更新 `localStorage` 的 `SESSION_ID_KEY` 和 `sessionIdRef`
+      - 重置 `historyLoaded = false`，等新 session 的历史加载完成后再解锁输入
+      - 调用 `loadHistory()` 加载新 session 的历史（新 session 无历史，直接解锁）
+      - 添加 `setTables([])` 和 `setActiveTableId(null)` 清空文件列表
+      - 调用 `POST /reset` 清空后端 loader，避免历史文件被拉取到新 session
+    - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+16. **修复多工作表选择后重复上传导致出现两个表的问题**
+    - **问题**: 上传多工作表 Excel 文件后，弹窗选择非第一个工作表，结果出现两个表
+    - **原因**:
+      - 上传时后端预加载第一个 Sheet 到 loader，返回 `preloadedTables`
+      - 用户选择非第一个 Sheet 时，原代码重新 `POST /upload?sheet_name=xxx` 上传文件
+      - 后端 `loader.add_table()` 以追加模式又添加了一个表，导致 loader 中有 2 个表
+    - **修复**:
+      - 选择非第一个工作表时，调用 `POST /tables/{tableId}/switch-sheet` 切换到对应 Sheet（不重复上传）
+      - 只切换 loader 中已有表的活跃 Sheet，避免重复添加
+    - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+17. **修复历史会话切换后 sheet_name 不匹配的问题**
+    - **问题**: 不同历史会话中同一文件分析了不同的 sheet，但切换会话后 sheet_name 没有变化，无法展示当前分析的是哪个表
+    - **原因**: 后端 loader 是全局单例，不区分 session。`GET /status` 返回的是 loader 当前状态，而非切换目标 session 的状态。没有记录每个 session 的活跃表和活跃 sheet 信息
+    - **修复**:
+      - `SessionInfo` 新增 `active_table_id` 和 `active_sheet_name` 字段
+      - `SessionManager` 新增 `_get_metadata_path`、`_load_session_metadata`、`_save_session_metadata`、`update_active_table`、`get_active_table_info` 方法，将 session 元数据持久化到 `data/sessions/{session_id}/metadata.json`
+      - 新增 `POST /session/{session_id}/load` 接口：重置 loader、从 session 文件目录重新加载所有文件、设置活跃表和活跃 sheet
+      - `upload_excel`、`switch_table_sheet`、`set_active_table` 接口调用后更新 session 元数据
+      - 前端 `loadSession` 改用 `POST /session/{session_id}/load` 加载 session 状态
+    - **修改文件**:
+      - `src/excel_agent/session_manager.py`
+      - `src/excel_agent/api.py`
+      - `src/renderer/routes/excel/index.tsx`
+
+18. **修复切换工作表后 UI 显示的表名称没有变化的问题**
+    - **问题**: 在下拉框选择其他工作表后，"当前表:"区域显示的表名称没有改变
+    - **原因**: UI 只显示 `filename`（文件名），没有显示 `sheet_name`（工作表名称）。用户切换的是工作表，但 UI 显示的是文件名，所以看起来"表名称没变"
+    - **修复**: 将 UI 中"当前表:"区域从只显示 `{filename}` 改为显示 `{filename} - {sheet_name}`
+    - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+19. **修复选择历史记录后表名称没有恢复的问题**
+    - **问题**: 加载历史会话后，即使该会话之前分析的是不同的工作表，UI 显示的 sheet_name 也没有变化
+    - **原因**: `load_session_state` 重新加载文件时调用 `loader.add_table(file_path, None)`，没有传入保存的 sheet_name，导致所有文件都加载第一个工作表，而不是原来保存的那个 sheet。同时 metadata 中也没有保存每个文件对应的 sheet_name
+    - **修复**:
+      - `SessionInfo` 新增 `_file_sheets` 和 `_file_infos` 字段，用于保存每个文件的 sheet_name 和 filename
+      - `SessionManager` 新增 `update_file_info`、`get_file_info`、`get_all_file_infos` 方法，保存每个文件的完整信息到 `metadata.json`
+      - `upload_excel` 时保存文件的 filename 和 sheet_name 到 metadata
+      - `switch_table_sheet` 时更新该文件的 sheet_name 到 metadata
+      - `load_session_state` 时从 metadata 获取每个文件对应的 sheet_name，加载时使用正确的 sheet
+    - **修改文件**:
+      - `src/excel_agent/session_manager.py`
+      - `src/excel_agent/api.py`
+
 ## 后续扩展
 
 ### 可添加的功能
