@@ -20,6 +20,7 @@ import {
   IconMessageChatbot,
   IconPhotoPlus,
   IconSettingsFilled,
+  IconTableShortcut,
 } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
