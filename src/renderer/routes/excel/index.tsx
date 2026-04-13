@@ -6,6 +6,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChartRenderer } from '@/components/excel/ChartRenderer'
+import Markdown from '@/components/Markdown'
 import Page from '@/components/layout/Page'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { useUIStore } from '@/stores/uiStore'
@@ -163,6 +164,7 @@ function ExcelPage() {
   const messagesRef = useRef<ChatMessage[]>([])  // 用于保存历史，确保访问最新值
   const sessionIdRef = useRef<string>(getSessionId())  // 当前 session ID 的 ref，确保 saveHistory 使用正确值
   const saveInProgressRef = useRef<Promise<void> | null>(null)  // 追踪正在进行的保存操作
+  const hasLeftBottomRef = useRef(false)  // 追踪用户是否已离开底部（向上滚动后）
 
   // Session ID
   const [sessionId, setSessionId] = useState<string>(getSessionId)
@@ -175,6 +177,7 @@ function ExcelPage() {
 
   // Auto-scroll state (当用户在底部附近时自动滚动)
   const [autoScroll, setAutoScroll] = useState(true)
+  const [hasLeftBottom, setHasLeftBottom] = useState(false)  // 用户是否已离开底部
 
   // 历史记录加载状态 - 必须等待历史加载完成才能发消息，防止刷新后消息被覆盖
   const [historyLoaded, setHistoryLoaded] = useState(false)
@@ -201,7 +204,29 @@ function ExcelPage() {
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = viewport
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-      setAutoScroll(distanceFromBottom < 100)
+
+      // 如果用户已离开底部，需要主动滑回底部才能重新启用
+      if (hasLeftBottomRef.current) {
+        if (distanceFromBottom < 50) {
+          // 用户主动滑回底部，重新启用自动跟随
+          hasLeftBottomRef.current = false
+          setHasLeftBottom(false)
+          setAutoScroll(true)
+        }
+        // 否则保持禁用状态
+        return
+      }
+
+      // 正常状态：检查是否需要启用或禁用
+      if (distanceFromBottom < 100) {
+        // 在底部附近，启用自动跟随
+        setAutoScroll(true)
+      } else if (distanceFromBottom > 150) {
+        // 用户向上滚动离开底部，禁用自动跟随
+        hasLeftBottomRef.current = true
+        setHasLeftBottom(true)
+        setAutoScroll(false)
+      }
     }
 
     viewport.addEventListener('scroll', handleScroll)
@@ -1152,9 +1177,7 @@ function ExcelPage() {
                             radius="md"
                             className="bg-chatbox-background-secondary prose prose-sm max-w-none"
                           >
-                            <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-                              {msg.content}
-                            </Text>
+                            <Markdown className="text-sm">{msg.content}</Markdown>
                           </Paper>
                         )}
                       </Box>

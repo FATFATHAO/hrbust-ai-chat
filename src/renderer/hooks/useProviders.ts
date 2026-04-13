@@ -25,7 +25,7 @@ export const useProviders = () => {
               models: chatboxAIModels,
             }
           } else if (
-            (!p.isCustom && providerSettings?.apiKey) ||
+            (!p.isCustom && (providerSettings?.apiKey || p.defaultSettings?.apiKey)) ||
             ((p.isCustom || p.id === ModelProviderEnum.Ollama || p.id === ModelProviderEnum.LMStudio) &&
               providerSettings?.models?.length)
           ) {

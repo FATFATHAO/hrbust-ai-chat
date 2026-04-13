@@ -497,6 +497,27 @@ nvm use 20.20.1
       - `src/excel_agent/session_manager.py`
       - `src/excel_agent/api.py`
 
+20. **修复自动跟随底部功能抖动问题**
+    - **问题**: 当用户向上滚动时会被"吸附"回底部，造成页面抖动
+    - **原因**: 原逻辑使用 `distanceFromBottom < 100` 来决定是否启用 `autoScroll`，当用户在底部附近向上滚动时，只要手指稍微停顿，`distanceFromBottom` 可能又小于 100，触发自动跟随跳回底部
+    - **修复**:
+      - 添加 `hasLeftBottomRef` 和 `hasLeftBottom` state 来追踪用户是否已离开底部
+      - 采用"单向锁定"机制：用户向上滚动离开底部（distanceFromBottom > 150）后解锁，禁用自动跟随
+      - 只有用户**主动**再次滑到底部附近（distanceFromBottom < 50）时，才重新启用自动跟随
+      - 这样避免了滚动过程中的状态抖动问题
+    - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
+21. **添加 Markdown 渲染功能**
+    - **功能**: 大模型返回的文本是 Markdown 格式，需要解析渲染
+    - **实现**: 复用 chatbox 项目现有的 `Markdown` 组件（基于 `react-markdown`）
+    - **支持的功能**:
+      - GFM (GitHub Flavored Markdown)：表格、任务列表、删除线等
+      - LaTeX 数学公式（使用 `rehype-katex`、`remark-math`）
+      - 代码高亮（使用 `Prism`）
+      - Mermaid 图表
+      - 代码块复制按钮
+    - **修改文件**: `src/renderer/routes/excel/index.tsx`
+
 ## 后续扩展
 
 ### 可添加的功能

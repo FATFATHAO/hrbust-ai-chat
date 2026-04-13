@@ -1,224 +1,390 @@
-import { ActionIcon, Badge, Button, Group, Paper, Stack, Table, Text, Title } from '@mantine/core'
-import { IconArrowLeft, IconBookUpload, IconFileText, IconTrash } from '@tabler/icons-react'
-import { useRouter } from '@tanstack/react-router'
-import React, { useCallback, useRef, useState, useEffect } from 'react'
-import { toast } from 'sonner'
+import {
+  ActionIcon,
+  Button,
+  Card,
+  Center,
+  Group,
+  Loader,
+  Modal,
+  Pagination,
+  Paper,
+  Stack,
+  Table,
+  Text,
+  TextInput,
+  Title,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import {
+  IconArrowLeft,
+  IconBookUpload,
+  IconFileText,
+  IconFolderPlus,
+  IconTrash,
+} from "@tabler/icons-react";
+import { useRouter } from "@tanstack/react-router";
+import type React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
-interface KbFile {
-  id: string
-  name: string
-  status: 'parsing' | 'completed' | 'error' | 'indexing' | 'waiting' | 'splitting'
-  uploadDate: string
+// ========== 类型定义 ==========
+
+interface Dataset {
+  dataset_id: string;
+  name: string;
+  description?: string;
+  doc_count?: number;
+  slice_count?: number;
+  char_count?: number;
+  status?: number;
+  create_time?: number;
+  update_time?: number;
+  icon_url?: string;
+  icon_uri?: string;
+  creator_id?: string;
+  creator_name?: string;
+  format_type?: number;
+  storage_location?: number;
+  space_id?: string;
+  file_list?: string[]; // 文件名列表，直接从 /v1/datasets 返回
+  failed_file_list?: string[]; // 失败文件列表
 }
 
-// @ts-ignore
-// 动态读取！如果找不到就回退到原来的逻辑
-const API_BASE_URL = window.APP_CONFIG?.API_BASE_URL || import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8001'
+interface CreateDocumentResponse {
+  document_infos: { document_id: string; name: string }[];
+  code: number;
+  msg: string;
+}
 
-// const MOCK_FILES: KbFile[] = [
-//   { id: '1', name: '20260215《黑龙江省“人工智能＋”政务深化应用工作方案》.pdf', status: 'completed', uploadDate: '2026-03-08' },
-//   { id: '2', name: 'Dify_企业接入内部指南.pdf', status: 'parsing', uploadDate: '2026-03-08' },
-// ]
+interface ListDatasetsResponse {
+  data?: {
+    dataset_list: Dataset[];
+    total_count: number;
+  };
+  code: number;
+  msg: string;
+}
+
+interface CreateDatasetResponse {
+  dataset_id: string;
+  code: number;
+  msg: string;
+}
+
+// ========== API 配置 ==========
+
+// @ts-ignore
+const API_BASE_URL =
+  window.APP_CONFIG?.API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:48080";
+
+// ========== API 函数 ==========
+
+const cozeApi = {
+  // 上传文件到 Coze
+  async uploadFile(file: File): Promise<{ file_id: string; file_name: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${API_BASE_URL}/v1/files/upload`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`上传失败: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.file_info || data;
+  },
+
+  // 创建文档
+  async createDocument(datasetId: string, fileId: string, fileName: string): Promise<string> {
+    const response = await fetch(`${API_BASE_URL}/v1/open_api/knowledge/document/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dataset_id: datasetId,
+        document_bases: [
+          {
+            name: fileName,
+            source_info: {
+              source_file_id: fileId,
+              document_source: "upload",
+            },
+          },
+        ],
+        storage_strategy: {
+          storage_location: "coze",
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`创建文档失败: ${response.statusText}`);
+    }
+
+    const data: CreateDocumentResponse = await response.json();
+    if (data.code !== 0) {
+      throw new Error(data.msg || "创建文档失败");
+    }
+
+    return data.document_infos?.[0]?.document_id || "";
+  },
+
+  // 创建数据集
+  async createDataset(
+    name: string,
+    description = "",
+    spaceId = "7626374491127414784",
+  ): Promise<string> {
+    const response = await fetch(`${API_BASE_URL}/v1/datasets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        description,
+        space_id: spaceId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`创建数据集失败: ${response.statusText}`);
+    }
+
+    const data: CreateDatasetResponse = await response.json();
+    if (data.code !== 0) {
+      throw new Error(data.msg || "创建数据集失败");
+    }
+
+    return data.dataset_id;
+  },
+
+  // 获取数据集列表
+  async listDatasets(page = 1, size = 20): Promise<{ datasets: Dataset[]; total: number }> {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+      space_id: "7626374491127414784",
+      project_id: "7626374607464824832",
+      knowledge_ids: "7626400579832512512",
+    });
+    const response = await fetch(`${API_BASE_URL}/v1/datasets?${params}`, {
+      method: "GET",
+    });
+
+    if (!response.ok) {
+      throw new Error(`获取数据集列表失败: ${response.statusText}`);
+    }
+
+    const result: ListDatasetsResponse = await response.json();
+    if (result.code !== 0) {
+      throw new Error(result.msg || "获取数据集列表失败");
+    }
+
+    return { datasets: result.data?.dataset_list || [], total: result.data?.total_count || 0 };
+  },
+
+  // 删除数据集
+  async deleteDataset(datasetId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/datasets/${datasetId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    if (!response.ok) {
+      throw new Error(`删除数据集失败: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(data.msg || "删除数据集失败");
+    }
+  },
+
+  // 删除文档（此接口存在但暂无法使用，因为 file_list 不包含 document_id）
+  async deleteDocuments(datasetId: string, documentIds: string[]): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/v1/open_api/knowledge/document/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dataset_id: datasetId,
+        document_ids: documentIds,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`删除文档失败: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(data.msg || "删除文档失败");
+    }
+  },
+};
+
+// ========== 组件 ==========
 
 const KnowledgeBasePage: React.FC = () => {
-  const [files, setFiles] = useState<KbFile[]>([])
-  const [loading, setLoading] = useState(true)
+  const router = useRouter();
 
-  // 上传文件部分
-  const [isUploading, setIsUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // 状态
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+  const [selectedDataset, setSelectedDataset] = useState<Dataset | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [datasetPage, setDatasetPage] = useState(1);
+  const [totalDatasets, setTotalDatasets] = useState(0);
 
-  // 跳转
-  const router = useRouter()
+  // 上传
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const fetchFiles = useCallback(async (silent = false) => {
-    // 如果不是静默拉取，才显示大 loading 圈
-    if (!silent) setLoading(true)
-    try {
-      // @ts-ignore
-      // const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8001'
-      const response = await fetch(`${API_BASE_URL}/api/files/list`)
-      if (!response.ok) throw new Error('拉取列表失败')
-      const data = await response.json()
-      setFiles(data.files || [])
-    } catch (error) {
-      console.error('拉取知识库列表失败:', error)
-      if (!silent) toast.error('获取知识库列表失败')
-    } finally {
-      if (!silent) setLoading(false)
-    }
-  }, [])
+  // 创建数据集弹窗
+  const [createModalOpened, { open: openCreateModal, close: closeCreateModal }] =
+    useDisclosure(false);
+  const [newDatasetName, setNewDatasetName] = useState("");
+  const [newDatasetDesc, setNewDatasetDesc] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
-  // 页面首次加载时获取列表
+  // 删除确认弹窗
+  const [deleteDialogOpened, { open: openDeleteDialog, close: closeDeleteDialog }] =
+    useDisclosure(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // 加载数据集
+  const fetchDatasets = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        const { datasets: ds, total } = await cozeApi.listDatasets(datasetPage, 20);
+        setDatasets(ds);
+        setTotalDatasets(total);
+      } catch (error: any) {
+        console.error("获取数据集列表失败:", error);
+        if (!silent) toast.error("获取数据集列表失败");
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [datasetPage],
+  );
+
+  // 初始化
   useEffect(() => {
-    fetchFiles()
-  }, [fetchFiles])
+    fetchDatasets();
+  }, [fetchDatasets]);
 
-  useEffect(() => {
-    // 检查当前列表里，是否有状态还是 'parsing' 的文件？
-    const hasParsingFiles = files.some(
-      (file) =>
-        file.status === 'parsing' ||
-        file.status === 'indexing' ||
-        file.status === 'waiting' ||
-        file.status === 'splitting',
-    )
+  // 选择数据集时，直接从 selectedDataset.file_list 获取文档列表
+  const fileList = selectedDataset?.file_list || [];
 
-    let timer: NodeJS.Timeout
-
-    // 只有存在正在解析的文件时，才启动 3 秒一次的静默轮询
-    if (hasParsingFiles) {
-      timer = setTimeout(() => {
-        console.log('检测到文件解析中，静默刷新状态...')
-        fetchFiles(true) // 传入 true，代表静默拉取，不打扰用户
-      }, 3000)
-    }
-
-    // 组件卸载或状态变化时，清理定时器，绝不内存泄漏
-    return () => clearTimeout(timer)
-  }, [files, fetchFiles]) // 依赖项里加上 files，只要 files 变了，就会重新评估要不要继续轮询
-
-  // 处理文件被选中后的自动上传
+  // 处理文件上传
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    // 重置 input，这样哪怕用户紧接着上传同一份文件，也能正常触发 onChange
-    event.target.value = ''
+    event.target.value = "";
 
-    // 组装发给 FastAPI 的包裹
-    const formData = new FormData()
-    formData.append('file', file)
+    if (!selectedDataset) {
+      toast.error("请先选择一个知识库");
+      return;
+    }
 
-    setIsUploading(true)
-    const toastId = toast.loading('正在上传并送往大模型大脑...')
+    setIsUploading(true);
+    const toastId = toast.loading("正在上传并送往大模型大脑...");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/files/upload`, {
-        method: 'POST',
-        body: formData, // 直接发 formData，浏览器会自动设置 multipart/form-data
-      })
+      // 1. 上传文件到 Coze
+      const fileInfo = await cozeApi.uploadFile(file);
 
-      if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.detail || '上传失败')
-      }
+      // 2. 创建文档记录
+      await cozeApi.createDocument(selectedDataset.dataset_id, fileInfo.file_id, file.name);
 
-      toast.success('上传成功，大模型正在阅读切片！', { id: toastId })
+      toast.success("上传成功，大模型正在阅读切片！", { id: toastId });
 
-      // 这样用户就能马上在表格里看到新文件，并且状态是黄色的“解析中”
-      await fetchFiles()
+      // 刷新数据集列表以更新 file_list
+      await fetchDatasets();
     } catch (error: any) {
-      console.error('上传错误:', error)
-      toast.error(`上传失败: ${error.message}`, { id: toastId })
+      console.error("上传错误:", error);
+      toast.error(`上传失败: ${error.message}`, { id: toastId });
     } finally {
-      setIsUploading(false)
+      setIsUploading(false);
     }
-  }
+  };
 
-  // 点击漂亮按钮，实际上是点了丑陋的隐藏 input
-  const handleUploadClick = () => {
-    fileInputRef.current?.click()
-  }
+  // 创建数据集
+  const handleCreateDataset = async () => {
+    if (!newDatasetName.trim()) {
+      toast.error("请输入数据集名称");
+      return;
+    }
 
-  const handleDelete = async (fileId: string, fileName: string) => {
-    // 极其必要的二次确认弹窗
-    const confirmDelete = window.confirm(
-      `⚠️ 危险操作确认\n\n确定要从知识库中彻底删除《${fileName}》吗？\n（此操作将同时清理大模型记忆和本地物理备份，且不可恢复）`,
-    )
-
-    if (!confirmDelete) return
-
-    const toastId = toast.loading('正在执行数据抹除指令...')
-
+    setIsCreating(true);
     try {
-      // 调用 FastAPI 删除接口，把 id 放进路径，把文件名作为 query 参数传过去以便本地清理
-      const response = await fetch(
-        `${API_BASE_URL}/api/files/delete/${fileId}?filename=${encodeURIComponent(fileName)}`,
-        {
-          method: 'DELETE',
-        },
-      )
-
-      if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.detail || '删除请求失败')
-      }
-
-      toast.success('已成功抹除该文档的所有痕迹！', { id: toastId })
-
-      // 抹除成功后，立刻重新拉取列表，界面瞬间清爽！
-      await fetchFiles()
+      await cozeApi.createDataset(newDatasetName.trim(), newDatasetDesc.trim());
+      toast.success("数据集创建成功！");
+      closeCreateModal();
+      setNewDatasetName("");
+      setNewDatasetDesc("");
+      await fetchDatasets();
     } catch (error: any) {
-      console.error('删除错误:', error)
-      toast.error(`删除失败: ${error.message}`, { id: toastId })
+      toast.error(`创建失败: ${error.message}`);
+    } finally {
+      setIsCreating(false);
     }
-  }
-  // 生成不同的颜色
-  const renderStatusBadge = (status: KbFile['status']) => {
-    switch (status) {
-      case 'completed':
-        return (
-          <Badge color="green" variant="light">
-            可用
-          </Badge>
-        )
-      case 'error':
-        return (
-          <Badge color="red" variant="light">
-            解析失败
-          </Badge>
-        )
-      case 'parsing':
-        return (
-          <Badge color="yellow" variant="light" className="animate-pulse">
-            文本解析中...
-          </Badge>
-        )
-      case 'indexing':
-        return (
-          <Badge color="blue" variant="light" className="animate-pulse">
-            建立向量索引...
-          </Badge>
-        )
-      case 'waiting':
-        return (
-          <Badge color="yellow" variant="light" className="animate-pulse">
-            等待中...
-          </Badge>
-        )
-      case 'splitting':
-        return (
-          <Badge color="grape" variant="light" className="animate-pulse">
-            分片中...
-          </Badge>
-        )
-      default:
-        return (
-          <Badge color="gray" variant="light">
-            未知状态
-          </Badge>
-        )
-    }
-  }
+  };
+
+  // 确认删除
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+
+    const targetId = deleteTarget.id;
+
+    const deleteAsync = async () => {
+      const toastId = toast.loading("正在删除...");
+      try {
+        await cozeApi.deleteDataset(targetId);
+        toast.success("数据集已删除", { id: toastId });
+        setSelectedDataset(null);
+        await fetchDatasets();
+      } catch (error: any) {
+        toast.error(`删除失败: ${error.message}`, { id: toastId });
+      }
+    };
+
+    deleteAsync();
+    closeDeleteDialog();
+    setDeleteTarget(null);
+  };
+
+  // 打开删除确认
+  const openDeleteConfirm = (id: string, name: string) => {
+    setDeleteTarget({ id, name });
+    openDeleteDialog();
+  };
+
+  // 总页数
+  const totalDatasetPages = Math.ceil(totalDatasets / 20) || 1;
+
+  // ========== 渲染 ==========
 
   return (
-    <Stack p="md" gap="xl" h="100%" style={{ overflowY: 'auto' }}>
-      {/* 头部区域 */}
+    <Stack p="md" gap="xl" h="100%" style={{ overflowY: "auto" }}>
+      {/* 顶部导航 */}
       <Group justify="space-between" align="center">
-        <Group align="flex-start" gap={'md'}>
+        <Group align="flex-start" gap="md">
           <ActionIcon
             variant="subtle"
             color="gray"
             size="lg"
             title="返回聊天"
             onClick={() => router.history.back()}
-            style={{ marginTop: '2px' }} // 微调一下对齐
           >
             <IconArrowLeft size={24} />
           </ActionIcon>
           <div>
-            <Title order={4} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Title order={4} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <IconBookUpload size={24} color="var(--mantine-color-blue-filled)" />
               专属知识库 (Coze RAG)
             </Title>
@@ -228,83 +394,219 @@ const KnowledgeBasePage: React.FC = () => {
           </div>
         </Group>
 
-        {/* 上传按钮 */}
         <Group>
-          <input
-            type="file"
-            accept=".pdf,.txt,.md,.docx" // 限制只能传这些类型
-            style={{ display: 'none' }}
-            ref={fileInputRef}
-            onChange={handleFileChange}
-          />
-          <Button
-            leftSection={<IconBookUpload size={16} />}
-            color="blue"
-            onClick={handleUploadClick}
-            loading={isUploading} // 上传时按钮转圈圈，防止用户狂点
-          >
-            {isUploading ? '上传中...' : '上传文档'}
+          <Button leftSection={<IconFolderPlus size={16} />} color="teal" onClick={openCreateModal}>
+            新建知识库
           </Button>
         </Group>
       </Group>
 
-      {/* 列表区域 */}
-      <Paper withBorder radius="md" shadow="sm">
-        <Table verticalSpacing="sm" striped highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>文档名称</Table.Th>
-              <Table.Th w={120}>状态</Table.Th>
-              <Table.Th w={150}>上传时间</Table.Th>
-              <Table.Th w={80} style={{ textAlign: 'center' }}>
-                操作
-              </Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {files.length > 0 ? (
-              files.map((file) => (
-                <Table.Tr key={file.id}>
-                  <Table.Td>
-                    <Group gap="sm" wrap="nowrap">
-                      <IconFileText size={20} color="var(--mantine-color-red-500)" />
-                      <Text size="sm" fw={500} truncate style={{ maxWidth: '300px' }} title={file.name}>
-                        {file.name}
-                      </Text>
-                    </Group>
-                  </Table.Td>
-                  <Table.Td>{renderStatusBadge(file.status)}</Table.Td>
-                  <Table.Td>
-                    <Text size="xs" c="dimmed">
-                      {file.uploadDate}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'center' }}>
-                    <ActionIcon
-                      variant="subtle"
-                      color="red"
-                      title="删除文档"
-                      onClick={() => handleDelete(file.id, file.name)}
-                    >
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Table.Td>
-                </Table.Tr>
-              ))
-            ) : (
-              <Table.Tr>
-                <Table.Td colSpan={4}>
-                  <Text c="dimmed" ta="center" py="xl">
-                    知识库空空如也，快点击右上角上传第一份文档吧！
-                  </Text>
-                </Table.Td>
-              </Table.Tr>
-            )}
-          </Table.Tbody>
-        </Table>
-      </Paper>
-    </Stack>
-  )
-}
+      {/* 加载状态 */}
+      {loading && !selectedDataset && (
+        <Center py="xl">
+          <Loader size="lg" />
+        </Center>
+      )}
 
-export default KnowledgeBasePage
+      {/* 数据集选择 + 文档列表 */}
+      {!loading && (
+        <Group align="flex-start" gap="xl" style={{ width: "100%" }}>
+          {/* 数据集列表 */}
+          <Paper withBorder radius="md" shadow="sm" style={{ width: 320, flexShrink: 0 }}>
+            <Stack p="md" gap="sm">
+              <Text fw={600} size="sm">
+                知识库列表
+              </Text>
+
+              {datasets.length === 0 ? (
+                <Text c="dimmed" size="sm" ta="center" py="md">
+                  暂无知识库，请新建
+                </Text>
+              ) : (
+                <>
+                  {datasets.map((ds) => (
+                    <Card
+                      key={ds.dataset_id}
+                      withBorder
+                      padding="sm"
+                      radius="md"
+                      style={{
+                        cursor: "pointer",
+                        borderColor:
+                          selectedDataset?.dataset_id === ds.dataset_id
+                            ? "var(--mantine-color-blue-filled)"
+                            : undefined,
+                        backgroundColor:
+                          selectedDataset?.dataset_id === ds.dataset_id
+                            ? "var(--mantine-color-blue-0)"
+                            : undefined,
+                      }}
+                      onClick={() => setSelectedDataset(ds)}
+                    >
+                      <Group justify="space-between" wrap="nowrap">
+                        <div style={{ overflow: "hidden" }}>
+                          <Text size="sm" fw={500} truncate title={ds.name}>
+                            {ds.name}
+                          </Text>
+                          <Text size="xs" c="dimmed">
+                            {ds.doc_count || 0} 个文档
+                          </Text>
+                        </div>
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDeleteConfirm(ds.dataset_id, ds.name);
+                          }}
+                        >
+                          <IconTrash size={14} />
+                        </ActionIcon>
+                      </Group>
+                    </Card>
+                  ))}
+
+                  {totalDatasetPages > 1 && (
+                    <Pagination
+                      total={totalDatasetPages}
+                      value={datasetPage}
+                      onChange={setDatasetPage}
+                      size="xs"
+                      mt="sm"
+                    />
+                  )}
+                </>
+              )}
+            </Stack>
+          </Paper>
+
+          {/* 文档列表 */}
+          <Stack style={{ flex: 1 }} gap="md">
+            {selectedDataset ? (
+              <>
+                <Group justify="space-between">
+                  <Text fw={600}>{selectedDataset.name} - 文档列表</Text>
+                  <Group>
+                    <input
+                      type="file"
+                      accept=".pdf,.txt,.md,.docx,.doc"
+                      style={{ display: "none" }}
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                    />
+                    {/* <Button */}
+                    {/*   leftSection={<IconBookUpload size={16} />} */}
+                    {/*   color="blue" */}
+                    {/*   onClick={() => fileInputRef.current?.click()} */}
+                    {/*   loading={isUploading} */}
+                    {/* > */}
+                    {/*   {isUploading ? '上传中...' : '上传文档'} */}
+                    {/* </Button> */}
+                  </Group>
+                </Group>
+
+                <Paper withBorder radius="md" shadow="sm">
+                  <Table verticalSpacing="sm" striped highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>文档名称</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {fileList.length > 0 ? (
+                        fileList.map((fileName, index) => (
+                          <Table.Tr key={index}>
+                            <Table.Td>
+                              <Group gap="sm" wrap="nowrap">
+                                <IconFileText size={20} color="var(--mantine-color-red-5)" />
+                                <Text
+                                  size="sm"
+                                  fw={500}
+                                  truncate
+                                  style={{ maxWidth: 500 }}
+                                  title={fileName}
+                                >
+                                  {fileName}
+                                </Text>
+                              </Group>
+                            </Table.Td>
+                          </Table.Tr>
+                        ))
+                      ) : (
+                        <Table.Tr>
+                          <Table.Td>
+                            <Text c="dimmed" ta="center" py="xl">
+                              知识库为空，快上传第一份文档吧！
+                            </Text>
+                          </Table.Td>
+                        </Table.Tr>
+                      )}
+                    </Table.Tbody>
+                  </Table>
+                </Paper>
+              </>
+            ) : (
+              <Center py="xl">
+                <Text c="dimmed">请从左侧选择一个知识库</Text>
+              </Center>
+            )}
+          </Stack>
+        </Group>
+      )}
+
+      {/* 创建数据集弹窗 */}
+      <Modal opened={createModalOpened} onClose={closeCreateModal} title="新建知识库" centered>
+        <Stack gap="md">
+          <TextInput
+            label="知识库名称"
+            placeholder="请输入知识库名称"
+            value={newDatasetName}
+            onChange={(e) => setNewDatasetName(e.target.value)}
+            required
+          />
+          <TextInput
+            label="描述（可选）"
+            placeholder="请输入知识库描述"
+            value={newDatasetDesc}
+            onChange={(e) => setNewDatasetDesc(e.target.value)}
+          />
+          <Group justify="flex-end" mt="md">
+            <Button variant="subtle" onClick={closeCreateModal}>
+              取消
+            </Button>
+            <Button onClick={handleCreateDataset} loading={isCreating}>
+              创建
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* 删除确认弹窗 */}
+      <Modal
+        opened={deleteDialogOpened}
+        onClose={closeDeleteDialog}
+        title="确认删除"
+        centered
+        size="sm"
+      >
+        <Stack gap="md">
+          <Text>确定要删除知识库「{deleteTarget?.name}」吗？</Text>
+          <Text size="sm" c="dimmed">
+            删除知识库将同时删除其中的所有文档，此操作不可恢复。
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="subtle" onClick={closeDeleteDialog}>
+              取消
+            </Button>
+            <Button color="red" onClick={confirmDelete}>
+              删除
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Stack>
+  );
+};
+
+export default KnowledgeBasePage;

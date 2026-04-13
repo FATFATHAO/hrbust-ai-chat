@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Button, Flex, Image, NavLink, Stack, Text, Tooltip } from '@mantine/core'
+import { ActionIcon, Badge, Box, Button, Flex, Image, NavLink, Stack, Text, Tooltip } from '@mantine/core'
 import SwipeableDrawer from '@mui/material/SwipeableDrawer'
 import {
   IconBook,
@@ -209,7 +209,12 @@ export default function Sidebar() {
           <NavLink
             c="chatbox-secondary"
             className="rounded"
-            label="Excel 分析"
+            label={
+              <Flex align="center" gap="xs">
+                Excel 分析
+                <Badge size="xs" color="orange" variant="filled">Beta</Badge>
+              </Flex>
+            }
             leftSection={<ScalableIcon icon={IconTableShortcut} size={20} />}
             onClick={() => {
               navigate({
