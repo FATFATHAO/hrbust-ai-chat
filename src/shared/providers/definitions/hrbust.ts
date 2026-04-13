@@ -13,11 +13,11 @@ export const hrbustProvider = defineProvider({
   type: ModelProviderType.OpenAI, // 使用OpenAI的底层通信协议
   description: "政务大模型专属问答平台",
   urls: {
-    website: "http://127.0.0.1:40010",
+    website: "https://ai.yuecin.com:40010",
   },
   defaultSettings: {
     apiKey: DEFAULT_API_KEY,
-    apiHost: "http://127.0.0.1:48080/v1",
+    apiHost: "http://ai.yuecin.com:40011/api",
     models: [
       {
         // TODO: 后续从 API 动态拉取模型列表

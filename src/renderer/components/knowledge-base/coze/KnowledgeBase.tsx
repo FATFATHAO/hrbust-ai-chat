@@ -75,7 +75,9 @@ interface CreateDatasetResponse {
 
 // @ts-ignore
 const API_BASE_URL =
-  window.APP_CONFIG?.API_BASE_URL || import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:48080";
+  window.APP_CONFIG?.API_BASE_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://ai.yuecin.com:40011/api";
 
 // ========== API 函数 ==========
 
@@ -386,7 +388,7 @@ const KnowledgeBasePage: React.FC = () => {
           <div>
             <Title order={4} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <IconBookUpload size={24} color="var(--mantine-color-blue-filled)" />
-              专属知识库 (Coze RAG)
+              专属知识库
             </Title>
             <Text size="sm" c="dimmed" mt={4}>
               上传本地文档，让大模型深度阅读并为您提供精准解答。
