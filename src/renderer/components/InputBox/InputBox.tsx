@@ -1283,48 +1283,63 @@ const InputBox = forwardRef<InputBoxRef, InputBoxProps>(
                   </Flex>
                 </TokenCountMenu>
 
-                {/* Model Selector */}
-                <Tooltip
-                  label={
-                    <Flex align="center" c="white" gap="xxs">
-                      <ScalableIcon icon={IconAlertCircle} size={12} className="text-inherit" />
-                      <Text span size="xxs" c="white">
-                        {t('Please select a model')}
-                      </Text>
-                    </Flex>
-                  }
-                  color="dark"
-                  opened={showSelectModelErrorTip}
-                  withArrow
-                >
-                  <ModelSelector
-                    onSelect={onSelectModel}
-                    selectedProviderId={model?.provider}
-                    selectedModelId={model?.modelId}
-                    position="top-end"
-                    transitionProps={{
-                      transition: 'fade-up',
-                      duration: 200,
-                    }}
+                {/* Model Selector - hrbust模型不显示选择器，只显示静态信息 */}
+                {model?.provider === 'hrbust' ? (
+                  <Flex align="center" gap="2" className="px-2 py-1">
+                    {!!model && <ProviderImageIcon size={18} provider={model.provider} />}
+                    <Text
+                      size="sm"
+                      className={cn(
+                        'text-[var(--chatbox-tint-secondary)] truncate',
+                        isSmallScreen ? 'max-w-[100px]' : 'max-w-[160px]'
+                      )}
+                    >
+                      {modelSelectorDisplayText}
+                    </Text>
+                  </Flex>
+                ) : (
+                  <Tooltip
+                    label={
+                      <Flex align="center" c="white" gap="xxs">
+                        <ScalableIcon icon={IconAlertCircle} size={12} className="text-inherit" />
+                        <Text span size="xxs" c="white">
+                          {t('Please select a model')}
+                        </Text>
+                      </Flex>
+                    }
+                    color="dark"
+                    opened={showSelectModelErrorTip}
+                    withArrow
                   >
-                    <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
-                      {!!model && <ProviderImageIcon size={18} provider={model.provider} />}
-                      <Text
-                        size="sm"
-                        className={cn(
-                          'text-[var(--chatbox-tint-secondary)] truncate',
-                          isSmallScreen ? 'max-w-[100px]' : 'max-w-[160px]'
-                        )}
-                      >
-                        {modelSelectorDisplayText}
-                      </Text>
-                      <IconChevronRight
-                        size={14}
-                        className="text-[var(--chatbox-tint-tertiary)] rotate-90 flex-shrink-0"
-                      />
-                    </UnstyledButton>
-                  </ModelSelector>
-                </Tooltip>
+                    <ModelSelector
+                      onSelect={onSelectModel}
+                      selectedProviderId={model?.provider}
+                      selectedModelId={model?.modelId}
+                      position="top-end"
+                      transitionProps={{
+                        transition: 'fade-up',
+                        duration: 200,
+                      }}
+                    >
+                      <UnstyledButton className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-[var(--chatbox-background-tertiary)] transition-colors">
+                        {!!model && <ProviderImageIcon size={18} provider={model.provider} />}
+                        <Text
+                          size="sm"
+                          className={cn(
+                            'text-[var(--chatbox-tint-secondary)] truncate',
+                            isSmallScreen ? 'max-w-[100px]' : 'max-w-[160px]'
+                          )}
+                        >
+                          {modelSelectorDisplayText}
+                        </Text>
+                        <IconChevronRight
+                          size={14}
+                          className="text-[var(--chatbox-tint-tertiary)] rotate-90 flex-shrink-0"
+                        />
+                      </UnstyledButton>
+                    </ModelSelector>
+                  </Tooltip>
+                )}
               </Flex>
             </Flex>
           </Stack>

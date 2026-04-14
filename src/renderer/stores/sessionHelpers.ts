@@ -578,7 +578,6 @@ export function mergeSettings(
 
 export function initEmptyChatSession(): Omit<Session, 'id'> {
   const settings = settingsStore.getState().getSettings()
-  const { chat: lastUsedChatModel } = lastUsedModelStore.getState()
   const newSession: Omit<Session, 'id'> = {
     name: 'Untitled',
     type: 'chat',
@@ -587,12 +586,9 @@ export function initEmptyChatSession(): Omit<Session, 'id'> {
       maxContextMessageCount: settings.maxContextMessageCount ?? Number.MAX_SAFE_INTEGER,
       temperature: settings.temperature || undefined,
       topP: settings.topP || undefined,
-      ...(settings.defaultChatModel
-        ? {
-            provider: settings.defaultChatModel.provider,
-            modelId: settings.defaultChatModel.model,
-          }
-        : lastUsedChatModel),
+      // 强制使用 hrbust 模型，不允许用户选择其他模型
+      provider: 'hrbust',
+      modelId: '7626374607464824832',
     },
   }
   if (settings.defaultPrompt) {
