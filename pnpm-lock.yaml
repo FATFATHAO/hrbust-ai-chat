@@ -19,6 +19,12 @@ importers:
 
   .:
     dependencies:
+      '@iconify-json/logos':
+        specifier: ^1.2.11
+        version: 1.2.11
+      '@iconify/react':
+        specifier: ^6.0.2
+        version: 6.0.2(react@18.3.1)
       '@libsql/client':
         specifier: ^0.15.6
         version: 0.15.15
@@ -2368,6 +2374,14 @@ packages:
   '@hutson/parse-repository-url@3.0.2':
     resolution: {integrity: sha512-H9XAx3hc0BQHY6l+IFSWHDySypcXsvsuLhgYLUGywmJ5pswRVQJUHpOsobnLYp2ZUaUlKiKDrgWWhosOwAEM8Q==}
     engines: {node: '>=6.9.0'}
+
+  '@iconify-json/logos@1.2.11':
+    resolution: {integrity: sha512-fOo4pGEatuyuCFNL+cwquYMa2Im0oJHRHV7lt/Qqs5Ode/lPImHCQcfTtPzZj7qYMPb/h8YHN3TG54uEowrjNQ==}
+
+  '@iconify/react@6.0.2':
+    resolution: {integrity: sha512-SMmC2sactfpJD427WJEDN6PMyznTFMhByK9yLW0gOTtnjzzbsi/Ke/XqsumsavFPwNiXs8jSiYeZTmLCLwO+Fg==}
+    peerDependencies:
+      react: '>=16'
 
   '@iconify/types@2.0.0':
     resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
@@ -15480,6 +15494,15 @@ snapshots:
       hono: 4.11.7
 
   '@hutson/parse-repository-url@3.0.2': {}
+
+  '@iconify-json/logos@1.2.11':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify/react@6.0.2(react@18.3.1)':
+    dependencies:
+      '@iconify/types': 2.0.0
+      react: 18.3.1
 
   '@iconify/types@2.0.0': {}
 

@@ -1,14 +1,17 @@
 import {
   ActionIcon,
   Badge,
+  Box,
   Button,
   Card,
   Center,
+  Checkbox,
   Group,
   Loader,
   Modal,
   Pagination,
   Paper,
+  SegmentedControl,
   Stack,
   Table,
   Text,
@@ -25,11 +28,17 @@ import {
   IconFileText,
   IconFolderPlus,
   IconTrash,
+  IconUpload,
 } from "@tabler/icons-react";
 import { useRouter } from "@tanstack/react-router";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+
+import { UploadProgressPanel } from "./UploadProgress";
+import { UploadQueue } from "./UploadQueue";
+import { validateFiles } from "./validation";
+import type { UploadQueueState } from "./types";
 
 // ========== 类型定义 ==========
 
@@ -351,9 +360,24 @@ const KnowledgeBasePage: React.FC = () => {
   const [documentsLoading, setDocumentsLoading] = useState(false);
   const [documentsTotal, setDocumentsTotal] = useState(0);
   const [documentPage, setDocumentPage] = useState(0);
+  const [documentPageSize, setDocumentPageSize] = useState(10);
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
 
-  // 上传
-  const [isUploading, setIsUploading] = useState(false);
+  // 上传队列
+  const uploadQueue = useMemo(
+    () =>
+      new UploadQueue(
+        { maxConcurrent: 3, maxRetries: 3 },
+        cozeApi.uploadFile.bind(cozeApi),
+        cozeApi.createDocument.bind(cozeApi)
+      ),
+    []
+  );
+  const [uploadState, setUploadState] = useState<UploadQueueState>(
+    uploadQueue.getState()
+  );
+  const [showUploadPanel, setShowUploadPanel] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 创建数据集弹窗
@@ -372,6 +396,10 @@ const KnowledgeBasePage: React.FC = () => {
   const [deleteDocDialogOpened, { open: openDeleteDocDialog, close: closeDeleteDocDialog }] =
     useDisclosure(false);
   const [deleteDocTarget, setDeleteDocTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // 批量删除文档弹窗
+  const [batchDeleteDialogOpened, { open: openBatchDeleteDialog, close: closeBatchDeleteDialog }] =
+    useDisclosure(false);
 
   // 编辑文档弹窗
   const [editDocDialogOpened, { open: openEditDocDialog, close: closeEditDocDialog }] =
@@ -407,14 +435,22 @@ const KnowledgeBasePage: React.FC = () => {
     if (selectedDataset?.dataset_id) {
       fetchDocuments(selectedDataset.dataset_id, true);
     }
-  }, [documentPage]);
+  }, [documentPage, selectedDataset?.dataset_id]);
+
+  // 同步上传队列状态
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setUploadState(uploadQueue.getState());
+    }, 500);
+    return () => clearInterval(interval);
+  }, [uploadQueue]);
 
   // 获取文档列表
   const fetchDocuments = useCallback(
     async (datasetId: string, silent = false) => {
       if (!silent) setDocumentsLoading(true);
       try {
-        const { documents: docs, total } = await cozeApi.listDocuments(datasetId, documentPage, 50);
+        const { documents: docs, total } = await cozeApi.listDocuments(datasetId, documentPage, documentPageSize);
         setDocuments(docs);
         setDocumentsTotal(total);
       } catch (error: any) {
@@ -427,6 +463,28 @@ const KnowledgeBasePage: React.FC = () => {
       }
     },
     [documentPage],
+  );
+
+  // 处理选择的文件（放在 fetchDocuments 之后）
+  const handleFilesSelected = useCallback(
+    async (files: File[]) => {
+      if (!selectedDataset) {
+        toast.error("请先选择一个知识库");
+        return;
+      }
+
+      uploadQueue.addFiles(files);
+      setShowUploadPanel(true);
+
+      await uploadQueue.start(selectedDataset.dataset_id);
+
+      // 上传完成后刷新数据
+      await fetchDatasets(true);
+      if (selectedDataset?.dataset_id) {
+        await fetchDocuments(selectedDataset.dataset_id, true);
+      }
+    },
+    [selectedDataset, uploadQueue, fetchDatasets, fetchDocuments]
   );
 
   // 选择数据集
@@ -464,6 +522,24 @@ const KnowledgeBasePage: React.FC = () => {
     setDeleteDocTarget({ id: docId, name: docName });
     openDeleteDocDialog();
   };
+
+  // 批量删除文档
+  const confirmBatchDeleteDocs = useCallback(async () => {
+    if (selectedDocIds.size === 0 || !selectedDataset) return;
+
+    const toastId = toast.loading(`正在删除 ${selectedDocIds.size} 个文档...`);
+    try {
+      await cozeApi.deleteDocuments(selectedDataset.dataset_id, Array.from(selectedDocIds));
+      toast.success(`已删除 ${selectedDocIds.size} 个文档`, { id: toastId });
+      setSelectedDocIds(new Set());
+      await fetchDocuments(selectedDataset.dataset_id);
+      await fetchDatasets(true);
+    } catch (error: any) {
+      toast.error(`删除失败: ${error.message}`, { id: toastId });
+    } finally {
+      closeBatchDeleteDialog();
+    }
+  }, [selectedDocIds, selectedDataset, fetchDocuments, fetchDatasets]);
 
   // 编辑文档
   const handleEditDoc = (docId: string, docName: string) => {
@@ -514,44 +590,6 @@ const KnowledgeBasePage: React.FC = () => {
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  // 处理文件上传
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    event.target.value = "";
-
-    if (!selectedDataset) {
-      toast.error("请先选择一个知识库");
-      return;
-    }
-
-    setIsUploading(true);
-    const toastId = toast.loading("正在上传并送往大模型大脑...");
-
-    try {
-      // 1. 上传文件到 Coze
-      const fileInfo = await cozeApi.uploadFile(file);
-
-      // 2. 创建文档记录
-      await cozeApi.createDocument(selectedDataset.dataset_id, fileInfo, file.name);
-
-      toast.success("上传成功，大模型正在阅读切片！", { id: toastId });
-
-      // 刷新数据集列表以更新 doc_count
-      await fetchDatasets(true);
-      // 刷新文档列表
-      if (selectedDataset?.dataset_id) {
-        await fetchDocuments(selectedDataset.dataset_id, true);
-      }
-    } catch (error: any) {
-      console.error("上传错误:", error);
-      toast.error(`上传失败: ${error.message}`, { id: toastId });
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   // 创建数据集
@@ -605,13 +643,110 @@ const KnowledgeBasePage: React.FC = () => {
     openDeleteDialog();
   };
 
+  // 拖拽上传处理
+  const handlePageDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (selectedDataset) setIsDragOver(true);
+  }, [selectedDataset]);
+
+  const handlePageDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handlePageDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+
+      if (!selectedDataset) {
+        toast.error("请先选择一个知识库");
+        return;
+      }
+
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
+
+      // 验证文件
+      const { valid, invalid } = validateFiles(files);
+      invalid.forEach(({ file, error }) => {
+        toast.error(`${file.name}: ${error}`);
+      });
+
+      if (valid.length > 0) {
+        void handleFilesSelected(valid);
+      }
+    },
+    [selectedDataset, handleFilesSelected]
+  );
+
+  // 点击上传按钮
+  const handleUploadButtonClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // 文件选择处理
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files || []);
+      if (files.length === 0) return;
+
+      const { valid, invalid } = validateFiles(files);
+      invalid.forEach(({ file, error }) => {
+        toast.error(`${file.name}: ${error}`);
+      });
+
+      if (valid.length > 0) {
+        void handleFilesSelected(valid);
+      }
+
+      e.target.value = "";
+    },
+    [handleFilesSelected]
+  );
+
   // 总页数
   const totalDatasetPages = Math.ceil(totalDatasets / 20) || 1;
 
   // ========== 渲染 ==========
 
   return (
-    <Stack p="md" gap="xl" h="100%" style={{ overflowY: "auto" }}>
+    <Stack
+      p="md"
+      gap="xl"
+      h="100%"
+      style={{ overflowY: "auto" }}
+      onDragOver={handlePageDragOver}
+      onDragLeave={handlePageDragLeave}
+      onDrop={handlePageDrop}
+    >
+      {/* 拖拽上传提示层 */}
+      {isDragOver && selectedDataset && (
+        <Box
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <Paper withBorder p="xl" radius="md" style={{ textAlign: "center" }}>
+            <IconUpload size={48} color="var(--mantine-color-blue-filled)" />
+            <Text size="lg" fw={500} mt="md">
+              释放文件上传到「{selectedDataset.name}」
+            </Text>
+          </Paper>
+        </Box>
+      )}
+
       {/* 顶部导航 */}
       <Group justify="space-between" align="center">
         <Group align="flex-start" gap="md">
@@ -653,7 +788,7 @@ const KnowledgeBasePage: React.FC = () => {
       {!loading && (
         <Group align="flex-start" gap="xl" style={{ width: "100%" }}>
           {/* 数据集列表 */}
-          <Paper withBorder radius="md" shadow="sm" style={{ width: 320, flexShrink: 0 }}>
+          <Paper withBorder radius="md" shadow="sm" style={{ width: 320, flexShrink: 0, maxHeight: 800, overflowY: "auto" }}>
             <Stack p="md" gap="sm">
               <Text fw={600} size="sm">
                 知识库列表
@@ -732,25 +867,61 @@ const KnowledgeBasePage: React.FC = () => {
                     <input
                       type="file"
                       accept=".pdf,.txt,.md,.docx,.doc"
+                      multiple
                       style={{ display: "none" }}
                       ref={fileInputRef}
-                      onChange={handleFileChange}
+                      onChange={handleFileInputChange}
                     />
+                    <SegmentedControl
+                      size="xs"
+                      data={[
+                        { label: '10条/页', value: '10' },
+                        { label: '15条/页', value: '15' },
+                      ]}
+                      value={String(documentPageSize)}
+                      onChange={(v) => {
+                        setDocumentPageSize(Number(v));
+                        setDocumentPage(0);
+                      }}
+                    />
+                    {selectedDocIds.size > 0 && (
+                      <Button
+                        leftSection={<IconTrash size={16} />}
+                        color="red"
+                        size="xs"
+                        variant="light"
+                        onClick={openBatchDeleteDialog}
+                      >
+                        删除已选 ({selectedDocIds.size})
+                      </Button>
+                    )}
                     <Button
-                      leftSection={<IconBookUpload size={16} />}
+                      leftSection={<IconUpload size={16} />}
                       color="blue"
-                      onClick={() => fileInputRef.current?.click()}
-                      loading={isUploading}
+                      onClick={handleUploadButtonClick}
                     >
-                      {isUploading ? "上传中..." : "上传文档"}
+                      上传文档
                     </Button>
                   </Group>
                 </Group>
 
                 <Paper withBorder radius="md" shadow="sm">
-                  <Table verticalSpacing="sm" striped highlightOnHover>
+                  <Table verticalSpacing="lg" striped highlightOnHover>
                     <Table.Thead>
                       <Table.Tr>
+                        <Table.Th style={{ width: 40 }}>
+                          <Checkbox
+                            checked={selectedDocIds.size === documents.length && documents.length > 0}
+                            indeterminate={selectedDocIds.size > 0 && selectedDocIds.size < documents.length}
+                            onChange={(e) => {
+                              if (e.currentTarget.checked) {
+                                setSelectedDocIds(new Set(documents.map((d) => d.document_id)));
+                              } else {
+                                setSelectedDocIds(new Set());
+                              }
+                            }}
+                          />
+                        </Table.Th>
                         <Table.Th>文档名称</Table.Th>
                         <Table.Th>状态</Table.Th>
                         <Table.Th>切片数</Table.Th>
@@ -762,7 +933,7 @@ const KnowledgeBasePage: React.FC = () => {
                     <Table.Tbody>
                       {documentsLoading ? (
                         <Table.Tr>
-                          <Table.Td colSpan={6}>
+                          <Table.Td colSpan={7}>
                             <Center py="xl">
                               <Loader size="sm" />
                             </Center>
@@ -771,6 +942,20 @@ const KnowledgeBasePage: React.FC = () => {
                       ) : documents.length > 0 ? (
                         documents.map((doc) => (
                           <Table.Tr key={doc.document_id}>
+                            <Table.Td>
+                              <Checkbox
+                                checked={selectedDocIds.has(doc.document_id)}
+                                onChange={() => {
+                                  const newSet = new Set(selectedDocIds);
+                                  if (newSet.has(doc.document_id)) {
+                                    newSet.delete(doc.document_id);
+                                  } else {
+                                    newSet.add(doc.document_id);
+                                  }
+                                  setSelectedDocIds(newSet);
+                                }}
+                              />
+                            </Table.Td>
                             <Table.Td>
                               <Group gap="sm" wrap="nowrap">
                                 <IconFileText size={20} color="var(--mantine-color-red-5)" />
@@ -847,7 +1032,7 @@ const KnowledgeBasePage: React.FC = () => {
                         ))
                       ) : (
                         <Table.Tr>
-                          <Table.Td colSpan={6}>
+                          <Table.Td colSpan={7}>
                             <Text c="dimmed" ta="center" py="xl">
                               知识库为空，快上传第一份文档吧！
                             </Text>
@@ -860,14 +1045,46 @@ const KnowledgeBasePage: React.FC = () => {
                   {documentsTotal > 10 && (
                     <Group justify="center" py="sm">
                       <Pagination
-                        total={Math.ceil(documentsTotal / 50)}
-                        value={documentPage}
-                        onChange={setDocumentPage}
+                        total={Math.ceil(documentsTotal / documentPageSize)}
+                        value={documentPage + 1}
+                        onChange={(v) => setDocumentPage(v - 1)}
                         size="sm"
                       />
                     </Group>
                   )}
                 </Paper>
+
+                {/* 上传进度面板 */}
+                {showUploadPanel && uploadState.tasks.length > 0 && (
+                  <UploadProgressPanel
+                    queueState={uploadState}
+                    onPause={() => uploadQueue.pause()}
+                    onResume={() =>
+                      selectedDataset &&
+                      uploadQueue.resume(selectedDataset.dataset_id)
+                    }
+                    onCancel={() => {
+                      uploadQueue.cancel();
+                      setShowUploadPanel(false);
+                    }}
+                    onRetryFailed={() =>
+                      selectedDataset &&
+                      uploadQueue.retryFailed(selectedDataset.dataset_id)
+                    }
+                    onRetrySingle={(taskId) =>
+                      selectedDataset &&
+                      uploadQueue.retrySingle(taskId, selectedDataset.dataset_id)
+                    }
+                    onRemoveTask={(taskId) => {
+                      uploadQueue.removeTask(taskId);
+                      setUploadState(uploadQueue.getState());
+                    }}
+                    onClearFinished={() => {
+                      uploadQueue.clearFinished();
+                      setUploadState(uploadQueue.getState());
+                    }}
+                  />
+                )}
               </>
             ) : (
               <Center py="xl">
@@ -947,6 +1164,30 @@ const KnowledgeBasePage: React.FC = () => {
               取消
             </Button>
             <Button color="red" onClick={confirmDeleteDoc}>
+              删除
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* 批量删除文档弹窗 */}
+      <Modal
+        opened={batchDeleteDialogOpened}
+        onClose={closeBatchDeleteDialog}
+        title="确认批量删除文档"
+        centered
+        size="sm"
+      >
+        <Stack gap="md">
+          <Text>确定要删除选中的 {selectedDocIds.size} 个文档吗？</Text>
+          <Text size="sm" c="dimmed">
+            删除后，文档的切片信息将无法恢复。
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="subtle" onClick={closeBatchDeleteDialog}>
+              取消
+            </Button>
+            <Button color="red" onClick={confirmBatchDeleteDocs}>
               删除
             </Button>
           </Group>

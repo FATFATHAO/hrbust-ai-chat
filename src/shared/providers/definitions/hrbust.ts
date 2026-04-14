@@ -25,7 +25,7 @@ export const hrbustProvider = defineProvider({
         capabilities: ["vision", "tool_use"],
         contextWindow: 128_000,
         maxOutput: 8_192,
-        nickname: "政务百事通",
+        nickname: "qwen2.5:32b",
       },
     ],
   },
