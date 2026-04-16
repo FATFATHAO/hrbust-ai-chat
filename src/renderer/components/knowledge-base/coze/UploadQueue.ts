@@ -3,12 +3,27 @@ import type {
   UploadQueueState,
   UploadQueueConfig,
   UploadStatus,
+  Chunk,
+  ReviewInfo,
 } from './types'
 
 const DEFAULT_CONFIG: UploadQueueConfig = {
   maxConcurrent: 3,
   maxRetries: 3,
   retryDelay: 1000,
+}
+
+// 辅助函数：根据文件名获取文档类型
+function getDocumentType(fileName: string): string {
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  const typeMap: Record<string, string> = {
+    pdf: "pdf",
+    docx: "docx",
+    doc: "doc",
+    txt: "txt",
+    md: "md",
+  };
+  return typeMap[ext || ""] || "unknown";
 }
 
 export class UploadQueue {
@@ -21,27 +36,69 @@ export class UploadQueue {
   // API 函数
   private uploadFileFn: (
     file: File
-  ) => Promise<{ id: string; uri: string; file_name: string }>
-  private createDocumentFn: (
+  ) => Promise<{ upload_url: string; upload_uri: string }>
+  private createReviewFn: (
     datasetId: string,
-    fileInfo: { id: string; uri: string; file_name: string },
-    fileName: string
-  ) => Promise<string>
+    uploadUri: string,
+    documentName: string,
+    documentType: string
+  ) => Promise<{ dataset_id: string; reviews: ReviewInfo[] }>
+  private mgetReviewFn: (
+    datasetId: string,
+    reviewIds: string[]
+  ) => Promise<{ dataset_id: string; reviews: ReviewInfo[] }>
+  private getChunksFn: (
+    docTreeTosUrl: string
+  ) => Promise<{ chunks: Chunk[] }>
+  private saveReviewFn: (
+    datasetId: string,
+    reviewId: string,
+    chunks: Chunk[]
+  ) => Promise<any>
+  private createKnowledgeDocumentFn: (
+    datasetId: string,
+    name: string,
+    tosUri: string,
+    reviewId: string
+  ) => Promise<{ document_infos: { document_id: string; name: string }[] }>
 
   constructor(
     config: Partial<UploadQueueConfig>,
     uploadFileFn: (
       file: File
-    ) => Promise<{ id: string; uri: string; file_name: string }>,
-    createDocumentFn: (
+    ) => Promise<{ upload_url: string; upload_uri: string }>,
+    createReviewFn: (
       datasetId: string,
-      fileInfo: { id: string; uri: string; file_name: string },
-      fileName: string
-    ) => Promise<string>
+      uploadUri: string,
+      documentName: string,
+      documentType: string
+    ) => Promise<{ dataset_id: string; reviews: ReviewInfo[] }>,
+    mgetReviewFn: (
+      datasetId: string,
+      reviewIds: string[]
+    ) => Promise<{ dataset_id: string; reviews: ReviewInfo[] }>,
+    getChunksFn: (
+      docTreeTosUrl: string
+    ) => Promise<{ chunks: Chunk[] }>,
+    saveReviewFn: (
+      datasetId: string,
+      reviewId: string,
+      chunks: Chunk[]
+    ) => Promise<any>,
+    createKnowledgeDocumentFn: (
+      datasetId: string,
+      name: string,
+      tosUri: string,
+      reviewId: string
+    ) => Promise<{ document_infos: { document_id: string; name: string }[] }>
   ) {
     this.config = { ...DEFAULT_CONFIG, ...config }
     this.uploadFileFn = uploadFileFn
-    this.createDocumentFn = createDocumentFn
+    this.createReviewFn = createReviewFn
+    this.mgetReviewFn = mgetReviewFn
+    this.getChunksFn = getChunksFn
+    this.saveReviewFn = saveReviewFn
+    this.createKnowledgeDocumentFn = createKnowledgeDocumentFn
     this.abortController = new AbortController()
     this.state = this.createInitialState()
   }
@@ -163,21 +220,106 @@ export class UploadQueue {
     if (!task || task.status !== 'pending') return
 
     try {
-      this.updateTask(taskId, { status: 'uploading', progress: 10 })
+      // ========== 步骤1: 上传文件 ==========
+      this.updateTask(taskId, {
+        status: 'uploading',
+        progress: 5,
+        currentStep: 'upload',
+      })
 
-      // 上传文件
       const fileInfo = await this.uploadFileFn(task.file)
 
       this.updateTask(taskId, {
-        progress: 50,
-        fileId: fileInfo.id,
-        fileUri: fileInfo.uri,
+        progress: 15,
+        uploadUri: fileInfo.upload_uri,
+        currentStep: 'create_review',
       })
 
-      // 创建文档记录
-      await this.createDocumentFn(datasetId, fileInfo, task.fileName)
+      // ========== 步骤2: 创建审查 ==========
+      const reviewResult = await this.createReviewFn(
+        datasetId,
+        fileInfo.upload_uri,
+        task.fileName,
+        getDocumentType(task.fileName)
+      )
+      const reviewInfo = reviewResult.reviews[0]
 
-      this.updateTask(taskId, { status: 'completed', progress: 100 })
+      this.updateTask(taskId, {
+        progress: 25,
+        reviewId: reviewInfo.review_id,
+        documentName: reviewInfo.document_name,
+        documentType: reviewInfo.document_type,
+        tosUrl: reviewInfo.tos_url,
+        currentStep: 'get_chunks',
+      })
+
+      // ========== 步骤3: 获取审查详情（包含 doc_tree_tos_url）- 带轮询 ==========
+      let reviewDetailInfo: ReviewInfo | null = null;
+      const maxRetries = 10;
+      const retryInterval = 2000; // 2秒
+
+      for (let i = 0; i < maxRetries; i++) {
+        const reviewDetail = await this.mgetReviewFn(datasetId, [reviewInfo.review_id]);
+        reviewDetailInfo = reviewDetail.reviews[0];
+
+        if (reviewDetailInfo?.doc_tree_tos_url) {
+          // 已有 doc_tree_tos_url，跳出轮询
+          break;
+        }
+
+        if (i < maxRetries - 1) {
+          // 还有重试次数，等待后继续
+          await this.sleep(retryInterval);
+        } else {
+          // 达到最大重试次数，抛出错误
+          throw new Error("获取文档分片预览超时: 等待 " + (maxRetries * retryInterval / 1000) + " 秒后仍无 doc_tree_tos_url");
+        }
+      }
+
+      if (!reviewDetailInfo?.doc_tree_tos_url) {
+        throw new Error("获取文档分片预览失败: 缺少 doc_tree_tos_url")
+      }
+
+      this.updateTask(taskId, {
+        docTreeTosUrl: reviewDetailInfo.doc_tree_tos_url,
+        previewTosUrl: reviewDetailInfo.preview_tos_url,
+        progress: 35,
+        currentStep: 'get_chunks',
+      })
+
+      // ========== 步骤4: 获取 chunks ==========
+      const chunksResult = await this.getChunksFn(reviewDetailInfo.doc_tree_tos_url)
+
+      this.updateTask(taskId, {
+        chunks: chunksResult.chunks,
+        chunksLoaded: true,
+        progress: 50,
+        currentStep: 'save_chunks',
+      })
+
+      // ========== 步骤5: 保存 chunks ==========
+      await this.saveReviewFn(datasetId, reviewInfo.review_id, chunksResult.chunks)
+
+      this.updateTask(taskId, {
+        chunksSaved: true,
+        progress: 75,
+        currentStep: 'create_document',
+      })
+
+      // ========== 步骤6: 创建知识库文档 ==========
+      const docResult = await this.createKnowledgeDocumentFn(
+        datasetId,
+        reviewInfo.document_name,
+        fileInfo.upload_uri,
+        reviewInfo.review_id
+      )
+
+      this.updateTask(taskId, {
+        status: 'completed',
+        progress: 100,
+        documentId: docResult.document_infos[0]?.document_id,
+        knowledgeDocumentId: docResult.document_infos[0]?.document_id,
+      })
     } catch (error: any) {
       const currentTask = this.state.tasks.find((t) => t.id === taskId)
       if (!currentTask) return

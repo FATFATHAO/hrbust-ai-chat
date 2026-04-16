@@ -34,11 +34,10 @@ import { useRouter } from "@tanstack/react-router";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-
+import type { Chunk, ReviewInfo, UploadQueueState } from "./types";
 import { UploadProgressPanel } from "./UploadProgress";
 import { UploadQueue } from "./UploadQueue";
 import { validateFiles } from "./validation";
-import type { UploadQueueState } from "./types";
 
 // ========== 类型定义 ==========
 
@@ -134,15 +133,51 @@ const API_BASE_URL =
 
 // ========== API 函数 ==========
 
+// 辅助函数：文件转 base64
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // 去掉 data:image/...;base64, 前缀
+      const base64 = result.split(",")[1] || result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// 辅助函数：根据文件名获取文档类型
+function getDocumentType(fileName: string): string {
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  const typeMap: Record<string, string> = {
+    pdf: "pdf",
+    docx: "docx",
+    doc: "doc",
+    txt: "txt",
+    md: "md",
+  };
+  return typeMap[ext || ""] || "unknown";
+}
+
 const cozeApi = {
   // 上传文件到 Coze
-  async uploadFile(file: File): Promise<{ id: string; uri: string; file_name: string }> {
-    const formData = new FormData();
-    formData.append("file", file);
+  async uploadFile(file: File): Promise<{ upload_url: string; upload_uri: string }> {
+    const base64 = await fileToBase64(file);
 
-    const response = await fetch(`${API_BASE_URL}/v1/files/upload`, {
+    const payload = {
+      file_head: {
+        file_type: getDocumentType(file.name),
+        biz_type: 2, // BIZ_BOT_DATASET = 2
+      },
+      data: base64,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/api/bot/upload_file`, {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -150,48 +185,180 @@ const cozeApi = {
     }
 
     const data = await response.json();
-    // 响应结构是 { data: { id, uri, file_name, ... }, code, msg }
-    return data.data || data;
+    // 新响应结构: { code, msg, data: { upload_url, upload_uri } }
+    if (data.code !== 0) {
+      throw new Error(data.msg || "上传失败");
+    }
+    return data.data;
   },
 
-  // 创建文档
-  async createDocument(
+  // 创建审查
+  async createReview(
     datasetId: string,
-    fileInfo: { id: string; uri: string; file_name: string },
-    fileName: string
-  ): Promise<string> {
-    const response = await fetch(`${API_BASE_URL}/open_api/knowledge/document/create`, {
+    uploadUri: string,
+    documentName: string,
+    documentType: string,
+  ): Promise<{
+    dataset_id: string;
+    reviews: { review_id: string; document_name: string; document_type: string; tos_url: string }[];
+  }> {
+    const response = await fetch(`${API_BASE_URL}/api/knowledge/review/create`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         dataset_id: datasetId,
-        format_type: 1, // 文档类型
-        document_bases: [
+        reviews: [
           {
-            name: fileName,
-            source_info: {
-              tos_uri: fileInfo.uri, // 使用 URI 字段
-              document_source: 0, // DocumentSource_Document = 0 (本地/飞书文件上传)
-            },
+            document_name: documentName,
+            document_type: documentType,
+            tos_uri: uploadUri,
           },
         ],
-        storage_strategy: {
-          storage_location: 0, // Default
+        chunk_strategy: {
+          chunk_type: 0,
+        },
+        parsing_strategy: {
+          parsing_type: 0,
+          image_extraction: true,
+          table_extraction: true,
+          image_ocr: false,
         },
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`创建文档失败: ${response.statusText}`);
+      throw new Error(`创建审查失败: ${response.statusText}`);
     }
 
     const data = await response.json();
-    // 响应可能使用 code 或 BaseResp.StatusCode
-    if (data.code !== 0 && data.BaseResp?.StatusCode !== 0) {
-      throw new Error(data.msg || data.BaseResp?.StatusMessage || "创建文档失败");
+    if (data.code !== 0) {
+      throw new Error(data.msg || "创建审查失败");
     }
 
-    return data.document_infos?.[0]?.document_id || "";
+    return data;
+  },
+
+  // 获取文档分片预览
+  async mgetReview(
+    datasetId: string,
+    reviewIds: string[],
+  ): Promise<{ dataset_id: string; reviews: ReviewInfo[] }> {
+    const response = await fetch(`${API_BASE_URL}/api/knowledge/review/mget`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dataset_id: datasetId,
+        review_ids: reviewIds,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`获取审查详情失败: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(data.msg || "获取审查详情失败");
+    }
+
+    return data;
+  },
+
+  // 获取 chunks（转换 doc_tree_tos_url 域名）
+  async getChunks(
+    docTreeTosUrl: string,
+  ): Promise<{ chunks: { id: string; text: string; type: string }[] }> {
+    // 将 http://minio:9000/opencoze/DocReview/xxx.txt
+    // 转换为 http://ai.yuecin.com:40010/local_storage/opencoze/DocReview/xxx.txt
+    const chunksUrl = docTreeTosUrl.replace(
+      /^http:\/\/[^/]+/,
+      "http://ai.yuecin.com:40010/local_storage",
+    );
+
+    const response = await fetch(chunksUrl);
+
+    if (!response.ok) {
+      throw new Error(`获取文档切片失败: ${response.statusText}`);
+    }
+
+    return response.json();
+  },
+
+  // 保存 chunks
+  async saveReview(
+    datasetId: string,
+    reviewId: string,
+    chunks: { id: string; text: string }[],
+  ): Promise<{ code: number; msg: string }> {
+    const docTreeJson = JSON.stringify(chunks);
+
+    const response = await fetch(`${API_BASE_URL}/api/knowledge/review/save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dataset_id: datasetId,
+        doc_tree_json: docTreeJson,
+        review_id: reviewId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`保存切片失败: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(data.msg || "保存切片失败");
+    }
+
+    return data;
+  },
+
+  // 创建 knowledge 文档
+  async createKnowledgeDocument(
+    datasetId: string,
+    name: string,
+    tosUri: string,
+    reviewId: string,
+  ): Promise<{ document_infos: { document_id: string; name: string }[] }> {
+    const response = await fetch(`${API_BASE_URL}/api/knowledge/document/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        dataset_id: datasetId,
+        format_type: 0,
+        document_bases: [
+          {
+            name: name,
+            source_info: {
+              tos_uri: tosUri,
+              document_source: 0,
+              review_id: reviewId,
+            },
+          },
+        ],
+        chunk_strategy: {
+          chunk_type: 0,
+        },
+        parsing_strategy: {
+          parsing_type: 0,
+          image_extraction: true,
+          table_extraction: true,
+          image_ocr: false,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`创建知识库文档失败: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    if (data.code !== 0) {
+      throw new Error(data.msg || "创建知识库文档失败");
+    }
+
+    return data;
   },
 
   // 创建数据集
@@ -369,13 +536,15 @@ const KnowledgeBasePage: React.FC = () => {
       new UploadQueue(
         { maxConcurrent: 3, maxRetries: 3 },
         cozeApi.uploadFile.bind(cozeApi),
-        cozeApi.createDocument.bind(cozeApi)
+        cozeApi.createReview.bind(cozeApi),
+        cozeApi.mgetReview.bind(cozeApi),
+        cozeApi.getChunks.bind(cozeApi),
+        cozeApi.saveReview.bind(cozeApi),
+        cozeApi.createKnowledgeDocument.bind(cozeApi),
       ),
-    []
+    [],
   );
-  const [uploadState, setUploadState] = useState<UploadQueueState>(
-    uploadQueue.getState()
-  );
+  const [uploadState, setUploadState] = useState<UploadQueueState>(uploadQueue.getState());
   const [showUploadPanel, setShowUploadPanel] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -450,7 +619,11 @@ const KnowledgeBasePage: React.FC = () => {
     async (datasetId: string, silent = false) => {
       if (!silent) setDocumentsLoading(true);
       try {
-        const { documents: docs, total } = await cozeApi.listDocuments(datasetId, documentPage, documentPageSize);
+        const { documents: docs, total } = await cozeApi.listDocuments(
+          datasetId,
+          documentPage,
+          documentPageSize,
+        );
         setDocuments(docs);
         setDocumentsTotal(total);
       } catch (error: any) {
@@ -484,7 +657,7 @@ const KnowledgeBasePage: React.FC = () => {
         await fetchDocuments(selectedDataset.dataset_id, true);
       }
     },
-    [selectedDataset, uploadQueue, fetchDatasets, fetchDocuments]
+    [selectedDataset, uploadQueue, fetchDatasets, fetchDocuments],
   );
 
   // 选择数据集
@@ -644,11 +817,14 @@ const KnowledgeBasePage: React.FC = () => {
   };
 
   // 拖拽上传处理
-  const handlePageDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (selectedDataset) setIsDragOver(true);
-  }, [selectedDataset]);
+  const handlePageDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (selectedDataset) setIsDragOver(true);
+    },
+    [selectedDataset],
+  );
 
   const handlePageDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -682,7 +858,7 @@ const KnowledgeBasePage: React.FC = () => {
         void handleFilesSelected(valid);
       }
     },
-    [selectedDataset, handleFilesSelected]
+    [selectedDataset, handleFilesSelected],
   );
 
   // 点击上传按钮
@@ -707,7 +883,7 @@ const KnowledgeBasePage: React.FC = () => {
 
       e.target.value = "";
     },
-    [handleFilesSelected]
+    [handleFilesSelected],
   );
 
   // 总页数
@@ -788,7 +964,12 @@ const KnowledgeBasePage: React.FC = () => {
       {!loading && (
         <Group align="flex-start" gap="xl" style={{ width: "100%" }}>
           {/* 数据集列表 */}
-          <Paper withBorder radius="md" shadow="sm" style={{ width: 320, flexShrink: 0, maxHeight: 800, overflowY: "auto" }}>
+          <Paper
+            withBorder
+            radius="md"
+            shadow="sm"
+            style={{ width: 320, flexShrink: 0, maxHeight: 800, overflowY: "auto" }}
+          >
             <Stack p="md" gap="sm">
               <Text fw={600} size="sm">
                 知识库列表
@@ -875,8 +1056,8 @@ const KnowledgeBasePage: React.FC = () => {
                     <SegmentedControl
                       size="xs"
                       data={[
-                        { label: '10条/页', value: '10' },
-                        { label: '15条/页', value: '15' },
+                        { label: "10条/页", value: "10" },
+                        { label: "15条/页", value: "15" },
                       ]}
                       value={String(documentPageSize)}
                       onChange={(v) => {
@@ -911,8 +1092,12 @@ const KnowledgeBasePage: React.FC = () => {
                       <Table.Tr>
                         <Table.Th style={{ width: 40 }}>
                           <Checkbox
-                            checked={selectedDocIds.size === documents.length && documents.length > 0}
-                            indeterminate={selectedDocIds.size > 0 && selectedDocIds.size < documents.length}
+                            checked={
+                              selectedDocIds.size === documents.length && documents.length > 0
+                            }
+                            indeterminate={
+                              selectedDocIds.size > 0 && selectedDocIds.size < documents.length
+                            }
                             onChange={(e) => {
                               if (e.currentTarget.checked) {
                                 setSelectedDocIds(new Set(documents.map((d) => d.document_id)));
@@ -1060,20 +1245,17 @@ const KnowledgeBasePage: React.FC = () => {
                     queueState={uploadState}
                     onPause={() => uploadQueue.pause()}
                     onResume={() =>
-                      selectedDataset &&
-                      uploadQueue.resume(selectedDataset.dataset_id)
+                      selectedDataset && uploadQueue.resume(selectedDataset.dataset_id)
                     }
                     onCancel={() => {
                       uploadQueue.cancel();
                       setShowUploadPanel(false);
                     }}
                     onRetryFailed={() =>
-                      selectedDataset &&
-                      uploadQueue.retryFailed(selectedDataset.dataset_id)
+                      selectedDataset && uploadQueue.retryFailed(selectedDataset.dataset_id)
                     }
                     onRetrySingle={(taskId) =>
-                      selectedDataset &&
-                      uploadQueue.retrySingle(taskId, selectedDataset.dataset_id)
+                      selectedDataset && uploadQueue.retrySingle(taskId, selectedDataset.dataset_id)
                     }
                     onRemoveTask={(taskId) => {
                       uploadQueue.removeTask(taskId);

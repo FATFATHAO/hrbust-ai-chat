@@ -8,6 +8,32 @@ export type UploadStatus =
   | 'paused'
   | 'cancelled'
 
+// 当前上传步骤
+export type UploadStep =
+  | 'upload'
+  | 'create_review'
+  | 'get_chunks'
+  | 'save_chunks'
+  | 'create_document'
+
+// 文档审查信息
+export interface ReviewInfo {
+  review_id: string
+  document_name: string
+  document_type: string
+  tos_url: string
+  status?: string
+  doc_tree_tos_url?: string
+  preview_tos_url?: string
+}
+
+// 单个 Chunk
+export interface Chunk {
+  id: string
+  text: string
+  type?: string
+}
+
 // 单个文件上传任务
 export interface UploadTask {
   id: string
@@ -24,6 +50,19 @@ export interface UploadTask {
   fileId?: string
   fileUri?: string
   documentId?: string
+  // 新流程字段
+  uploadUri?: string // upload_uri
+  reviewId?: string // review_id
+  documentName?: string // 文档名称
+  documentType?: string // 文档类型
+  tosUrl?: string // tos_url
+  docTreeTosUrl?: string // doc_tree_tos_url
+  previewTosUrl?: string // preview_tos_url
+  chunks?: Chunk[] // 文档切片
+  chunksLoaded?: boolean // chunks 是否已加载
+  chunksSaved?: boolean // chunks 是否已保存
+  knowledgeDocumentId?: string // 最终文档 ID
+  currentStep?: UploadStep // 当前处理的子步骤
 }
 
 // 批量上传队列状态
