@@ -1,46 +1,57 @@
-import { Button, FileButton, Flex, Slider, Stack, Switch, Text, Textarea, Title, Tooltip } from '@mantine/core'
-import { chatSessionSettings, getDefaultPrompt } from '@shared/defaults'
-import { IconInfoCircle } from '@tabler/icons-react'
-import { createFileRoute } from '@tanstack/react-router'
-import { useMemo } from 'react'
-import { useTranslation } from 'react-i18next'
-import { AssistantAvatar, UserAvatar } from '@/components/common/Avatar'
-import MaxContextMessageCountSlider from '@/components/common/MaxContextMessageCountSlider'
-import SliderWithInput from '@/components/common/SliderWithInput'
-import { Divider } from '@/components/common/Divider'
-import { handleImageInputAndSave } from '@/components/Image'
-import { ScalableIcon } from '@/components/common/ScalableIcon'
-import { StorageKeyGenerator } from '@/storage/StoreStorage'
-import { useSettingsStore } from '@/stores/settingsStore'
-import { add as addToast } from '@/stores/toastActions'
+import {
+  Button,
+  FileButton,
+  Flex,
+  Slider,
+  Stack,
+  Switch,
+  Text,
+  Textarea,
+  Title,
+  Tooltip,
+} from "@mantine/core";
+import { chatSessionSettings, getDefaultPrompt } from "@shared/defaults";
+import { IconInfoCircle } from "@tabler/icons-react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { AssistantAvatar, UserAvatar } from "@/components/common/Avatar";
+import { Divider } from "@/components/common/Divider";
+import MaxContextMessageCountSlider from "@/components/common/MaxContextMessageCountSlider";
+import { ScalableIcon } from "@/components/common/ScalableIcon";
+import SliderWithInput from "@/components/common/SliderWithInput";
+import { handleImageInputAndSave } from "@/components/Image";
+import { StorageKeyGenerator } from "@/storage/StoreStorage";
+import { useSettingsStore } from "@/stores/settingsStore";
+import { add as addToast } from "@/stores/toastActions";
 
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
-export const Route = createFileRoute('/settings/chat')({
+export const Route = createFileRoute("/settings/chat")({
   component: RouteComponent,
-})
+});
 
 export function RouteComponent() {
-  const { t } = useTranslation()
-  const { setSettings, ...settings } = useSettingsStore((state) => state)
+  const { t } = useTranslation();
+  const { setSettings, ...settings } = useSettingsStore((state) => state);
 
   return (
     <Stack gap="xxl" p="md">
-      <Title order={5}>{t('Chat Settings')}</Title>
+      <Title order={5}>{t("Chat Settings")}</Title>
 
       {/* Avatars */}
       <Stack gap="md">
         <Stack gap="xxs">
-          <Text fw="600">{t('Edit Avatars')}</Text>
+          <Text fw="600">{t("Edit Avatars")}</Text>
           <Text size="xs" c="chatbox-tertiary">
-            {t('Support jpg or png file smaller than 5MB')}
+            {t("Support jpg or png file smaller than 5MB")}
           </Text>
         </Stack>
 
         {/* User Avatar' */}
         <Stack>
           <Text size="xs" c="chatbox-secondary">
-            {t('User Avatar')}
+            {t("User Avatar")}
           </Text>
           <Flex align="center" gap="xs">
             <UserAvatar size={56} avatarKey={settings.userAvatarKey} />
@@ -48,24 +59,28 @@ export function RouteComponent() {
               onChange={(file) => {
                 if (file) {
                   if (file.size > MAX_IMAGE_SIZE) {
-                    addToast(t('Support jpg or png file smaller than 5MB'))
-                    return
+                    addToast(t("Support jpg or png file smaller than 5MB"));
+                    return;
                   }
-                  const key = StorageKeyGenerator.picture('user-avatar')
-                  handleImageInputAndSave(file, key, () => setSettings({ userAvatarKey: key }))
+                  const key = StorageKeyGenerator.picture("user-avatar");
+                  handleImageInputAndSave(file, key, () => setSettings({ userAvatarKey: key }));
                 }
               }}
               accept="image/png,image/jpeg"
             >
               {(props) => (
                 <Button {...props} variant="outline" size="xs">
-                  {t('Upload Image')}
+                  {t("Upload Image")}
                 </Button>
               )}
             </FileButton>
             {!!settings.userAvatarKey && (
-              <Button color="chatbox-gray" size="xs" onClick={() => setSettings({ userAvatarKey: undefined })}>
-                {t('Delete')}
+              <Button
+                color="chatbox-gray"
+                size="xs"
+                onClick={() => setSettings({ userAvatarKey: undefined })}
+              >
+                {t("Delete")}
               </Button>
             )}
           </Flex>
@@ -74,7 +89,7 @@ export function RouteComponent() {
         {/* Default Assistant Avatar */}
         <Stack>
           <Text size="xs" c="chatbox-secondary">
-            {t('Default Assistant Avatar')}
+            {t("Default Assistant Avatar")}
           </Text>
           <Flex align="center" gap="xs">
             <AssistantAvatar avatarKey={settings.defaultAssistantAvatarKey} size={56} />
@@ -82,18 +97,20 @@ export function RouteComponent() {
               onChange={(file) => {
                 if (file) {
                   if (file.size > MAX_IMAGE_SIZE) {
-                    addToast(t('Support jpg or png file smaller than 5MB'))
-                    return
+                    addToast(t("Support jpg or png file smaller than 5MB"));
+                    return;
                   }
-                  const key = StorageKeyGenerator.picture('default-assistant-avatar')
-                  handleImageInputAndSave(file, key, () => setSettings({ defaultAssistantAvatarKey: key }))
+                  const key = StorageKeyGenerator.picture("default-assistant-avatar");
+                  handleImageInputAndSave(file, key, () =>
+                    setSettings({ defaultAssistantAvatarKey: key }),
+                  );
                 }
               }}
               accept="image/png,image/jpeg"
             >
               {(props) => (
                 <Button {...props} variant="outline" size="xs">
-                  {t('Upload Image')}
+                  {t("Upload Image")}
                 </Button>
               )}
             </FileButton>
@@ -103,7 +120,7 @@ export function RouteComponent() {
                 size="xs"
                 onClick={() => setSettings({ defaultAssistantAvatarKey: undefined })}
               >
-                {t('Delete')}
+                {t("Delete")}
               </Button>
             )}
           </Flex>
@@ -114,11 +131,12 @@ export function RouteComponent() {
 
       {/* Default Settings */}
       <Stack gap="md">
-        <Text fw="600">{t('Default Settings for New Conversation')}</Text>
+        <Text fw="600">{t("Default Settings for New Conversation")}</Text>
         <Stack gap="xxs">
-          <Text fw="500">{t('Prompt')}</Text>
+          <Text fw="500">{t("Prompt")}</Text>
           <Textarea
-            value={settings.defaultPrompt || ''}
+            // value={settings.defaultPrompt || ''}
+            value={""}
             autosize
             minRows={1}
             maxRows={12}
@@ -134,18 +152,18 @@ export function RouteComponent() {
             onClick={() => {
               setSettings({
                 defaultPrompt: getDefaultPrompt(),
-              })
+              });
             }}
             px={3}
             py={6}
             className=" self-start"
           >
-            {t('Reset to Default')}
+            {t("Reset to Default")}
           </Button>
         </Stack>
 
         <MaxContextMessageCountSlider
-          wrapperProps={{ gap: 'xxs' }}
+          wrapperProps={{ gap: "xxs" }}
           labelProps={{ fw: undefined }}
           value={settings?.maxContextMessageCount ?? chatSessionSettings().maxContextMessageCount!}
           onChange={(v) => setSettings({ maxContextMessageCount: v })}
@@ -153,10 +171,10 @@ export function RouteComponent() {
 
         <Stack gap="xxs">
           <Flex align="center" gap="xs">
-            <Text size="sm">{t('Temperature')}</Text>
+            <Text size="sm">{t("Temperature")}</Text>
             <Tooltip
               label={t(
-                'Modify the creativity of AI responses; the higher the value, the more random and intriguing the answers become, while a lower value ensures greater stability and reliability.'
+                "Modify the creativity of AI responses; the higher the value, the more random and intriguing the answers become, while a lower value ensures greater stability and reliability.",
               )}
               withArrow={true}
               maw={320}
@@ -164,11 +182,19 @@ export function RouteComponent() {
               zIndex={3000}
               events={{ hover: true, focus: true, touch: true }}
             >
-              <ScalableIcon icon={IconInfoCircle} size={20} className="text-chatbox-tint-tertiary" />
+              <ScalableIcon
+                icon={IconInfoCircle}
+                size={20}
+                className="text-chatbox-tint-tertiary"
+              />
             </Tooltip>
           </Flex>
 
-          <SliderWithInput value={settings?.temperature} onChange={(v) => setSettings({ temperature: v })} max={2} />
+          <SliderWithInput
+            value={settings?.temperature}
+            onChange={(v) => setSettings({ temperature: v })}
+            max={2}
+          />
         </Stack>
 
         <Stack gap="xxs">
@@ -176,7 +202,7 @@ export function RouteComponent() {
             <Text size="sm">Top P</Text>
             <Tooltip
               label={t(
-                'The topP parameter controls the diversity of AI responses: lower values make the output more focused and predictable, while higher values allow for more varied and creative replies.'
+                "The topP parameter controls the diversity of AI responses: lower values make the output more focused and predictable, while higher values allow for more varied and creative replies.",
               )}
               withArrow={true}
               maw={320}
@@ -184,16 +210,24 @@ export function RouteComponent() {
               zIndex={3000}
               events={{ hover: true, focus: true, touch: true }}
             >
-              <ScalableIcon icon={IconInfoCircle} size={20} className="text-chatbox-tint-tertiary" />
+              <ScalableIcon
+                icon={IconInfoCircle}
+                size={20}
+                className="text-chatbox-tint-tertiary"
+              />
             </Tooltip>
           </Flex>
 
-          <SliderWithInput value={settings?.topP} onChange={(v) => setSettings({ topP: v })} max={1} />
+          <SliderWithInput
+            value={settings?.topP}
+            onChange={(v) => setSettings({ topP: v })}
+            max={1}
+          />
         </Stack>
 
         <Stack gap="xxs">
           <Flex align="center" gap="xs" justify="space-between">
-            <Text size="sm">{t('Stream output')}</Text>
+            <Text size="sm">{t("Stream output")}</Text>
             <Switch
               // label={t('Stream output')}
               checked={settings?.stream ?? true}
@@ -206,18 +240,18 @@ export function RouteComponent() {
 
       {/* Conversation Settings */}
       <Stack gap="md">
-        <Text fw="600">{t('Conversation Settings')}</Text>
+        <Text fw="600">{t("Conversation Settings")}</Text>
 
         {/* Display */}
         <Stack gap="sm">
-          <Text c="chatbox-tertiary">{t('Display')}</Text>
+          <Text c="chatbox-tertiary">{t("Display")}</Text>
 
           <Switch
-            label={t('show message word count')}
+            label={t("show message word count")}
             checked={settings.showWordCount}
             onChange={() =>
               setSettings((draft) => {
-                draft.showWordCount = !draft.showWordCount
+                draft.showWordCount = !draft.showWordCount;
               })
             }
           />
@@ -233,7 +267,7 @@ export function RouteComponent() {
           /> */}
 
           <Switch
-            label={t('show message token usage')}
+            label={t("show message token usage")}
             checked={settings.showTokenUsed}
             onChange={() =>
               setSettings({
@@ -243,7 +277,7 @@ export function RouteComponent() {
           />
 
           <Switch
-            label={t('show model name')}
+            label={t("show model name")}
             checked={settings.showModelName}
             onChange={() =>
               setSettings({
@@ -253,7 +287,7 @@ export function RouteComponent() {
           />
 
           <Switch
-            label={t('show message timestamp')}
+            label={t("show message timestamp")}
             checked={settings.showMessageTimestamp}
             onChange={() =>
               setSettings({
@@ -263,7 +297,7 @@ export function RouteComponent() {
           />
 
           <Switch
-            label={t('show first token latency')}
+            label={t("show first token latency")}
             checked={settings.showFirstTokenLatency}
             onChange={() =>
               setSettings({
@@ -275,10 +309,10 @@ export function RouteComponent() {
 
         {/* Function */}
         <Stack gap="sm">
-          <Text c="chatbox-tertiary">{t('Function')}</Text>
+          <Text c="chatbox-tertiary">{t("Function")}</Text>
 
           <Switch
-            label={t('Auto-collapse code blocks')}
+            label={t("Auto-collapse code blocks")}
             checked={settings.autoCollapseCodeBlock}
             onChange={() =>
               setSettings({
@@ -287,7 +321,7 @@ export function RouteComponent() {
             }
           />
           <Switch
-            label={t('Auto-Generate Chat Titles')}
+            label={t("Auto-Generate Chat Titles")}
             checked={settings.autoGenerateTitle}
             onChange={() =>
               setSettings({
@@ -297,7 +331,7 @@ export function RouteComponent() {
             }
           />
           <Switch
-            label={t('Spell Check')}
+            label={t("Spell Check")}
             checked={settings.spellCheck}
             onChange={() =>
               setSettings({
@@ -307,7 +341,7 @@ export function RouteComponent() {
             }
           />
           <Switch
-            label={t('Markdown Rendering')}
+            label={t("Markdown Rendering")}
             checked={settings.enableMarkdownRendering}
             onChange={() =>
               setSettings({
@@ -317,7 +351,7 @@ export function RouteComponent() {
             }
           />
           <Switch
-            label={t('LaTeX Rendering (Requires Markdown)')}
+            label={t("LaTeX Rendering (Requires Markdown)")}
             checked={settings.enableLaTeXRendering}
             onChange={() =>
               setSettings({
@@ -327,7 +361,7 @@ export function RouteComponent() {
             }
           />
           <Switch
-            label={t('Mermaid Diagrams & Charts Rendering')}
+            label={t("Mermaid Diagrams & Charts Rendering")}
             checked={settings.enableMermaidRendering}
             onChange={() =>
               setSettings({
@@ -337,9 +371,9 @@ export function RouteComponent() {
             }
           />
           <Switch
-            label={t('Inject default metadata')}
+            label={t("Inject default metadata")}
             checked={settings.injectDefaultMetadata}
-            description={t('e.g., Model Name, Current Date')}
+            description={t("e.g., Model Name, Current Date")}
             onChange={() =>
               setSettings({
                 ...settings,
@@ -348,9 +382,11 @@ export function RouteComponent() {
             }
           />
           <Switch
-            label={t('Auto-preview artifacts')}
+            label={t("Auto-preview artifacts")}
             checked={settings.autoPreviewArtifacts}
-            description={t('Automatically render generated artifacts (e.g., HTML with CSS, JS, Tailwind)')}
+            description={t(
+              "Automatically render generated artifacts (e.g., HTML with CSS, JS, Tailwind)",
+            )}
             onChange={() =>
               setSettings({
                 ...settings,
@@ -359,10 +395,10 @@ export function RouteComponent() {
             }
           />
           <Switch
-            label={t('Paste long text as a file')}
+            label={t("Paste long text as a file")}
             checked={settings.pasteLongTextAsAFile}
             description={t(
-              'Pasting long text will automatically insert it as a file, keeping chats clean and reducing token usage with prompt caching.'
+              "Pasting long text will automatically insert it as a file, keeping chats clean and reducing token usage with prompt caching.",
             )}
             onChange={() =>
               setSettings({
@@ -379,37 +415,37 @@ export function RouteComponent() {
       {/* Context Management */}
       <ContextManagementSection />
     </Stack>
-  )
+  );
 }
 
 function ContextManagementSection() {
-  const { t } = useTranslation()
-  const { setSettings, ...settings } = useSettingsStore((state) => state)
+  const { t } = useTranslation();
+  const { setSettings, ...settings } = useSettingsStore((state) => state);
 
   // Get strategy hint based on threshold value
   const strategyHint = useMemo(() => {
-    const threshold = settings.compactionThreshold ?? 0.6
+    const threshold = settings.compactionThreshold ?? 0.6;
     if (threshold <= 0.5) {
-      return t('Cost Priority: Compacts early to save tokens, may lose some context')
+      return t("Cost Priority: Compacts early to save tokens, may lose some context");
     }
     if (threshold >= 0.8) {
-      return t('Context Priority: Preserves more context, uses more tokens')
+      return t("Context Priority: Preserves more context, uses more tokens");
     }
-    return t('Balanced: Good balance between cost and context preservation')
-  }, [settings.compactionThreshold, t])
+    return t("Balanced: Good balance between cost and context preservation");
+  }, [settings.compactionThreshold, t]);
 
   return (
     <Stack gap="xl">
-      <Text fw="600">{t('Context Management')}</Text>
+      <Text fw="600">{t("Context Management")}</Text>
 
       {/* Auto Compaction Toggle */}
       <Stack gap="sm">
         <Flex align="center" gap="xs" justify="space-between">
           <Flex align="center" gap="xs">
-            <Text size="sm">{t('Auto Compaction')}</Text>
+            <Text size="sm">{t("Auto Compaction")}</Text>
             <Tooltip
               label={t(
-                'Automatically summarize and compact conversation history when context size exceeds the threshold, preserving key information while reducing token usage.'
+                "Automatically summarize and compact conversation history when context size exceeds the threshold, preserving key information while reducing token usage.",
               )}
               withArrow={true}
               maw={320}
@@ -417,7 +453,11 @@ function ContextManagementSection() {
               zIndex={3000}
               events={{ hover: true, focus: true, touch: true }}
             >
-              <ScalableIcon icon={IconInfoCircle} size={20} className="text-chatbox-tint-tertiary" />
+              <ScalableIcon
+                icon={IconInfoCircle}
+                size={20}
+                className="text-chatbox-tint-tertiary"
+              />
             </Tooltip>
           </Flex>
           <Switch
@@ -430,17 +470,19 @@ function ContextManagementSection() {
           />
         </Flex>
         <Text c="chatbox-tertiary" size="xs">
-          {t('When enabled, conversations will be automatically summarized to manage context window usage.')}
+          {t(
+            "When enabled, conversations will be automatically summarized to manage context window usage.",
+          )}
         </Text>
       </Stack>
 
       {/* Compaction Threshold Slider */}
       <Stack gap="sm">
         <Flex align="center" gap="xs">
-          <Text size="sm">{t('Compaction Threshold')}</Text>
+          <Text size="sm">{t("Compaction Threshold")}</Text>
           <Tooltip
             label={t(
-              'The percentage of context window usage that triggers automatic compaction. Lower values save tokens but may lose context earlier.'
+              "The percentage of context window usage that triggers automatic compaction. Lower values save tokens but may lose context earlier.",
             )}
             withArrow={true}
             maw={320}
@@ -464,10 +506,10 @@ function ContextManagementSection() {
           />
           <Flex justify="space-between" px={2}>
             <Text size="xs" c="chatbox-tertiary">
-              {t('Cost')}
+              {t("Cost")}
             </Text>
             <Text size="xs" c="chatbox-tertiary">
-              {t('Context')}
+              {t("Context")}
             </Text>
           </Flex>
         </Stack>
@@ -477,5 +519,5 @@ function ContextManagementSection() {
         </Text>
       </Stack>
     </Stack>
-  )
+  );
 }

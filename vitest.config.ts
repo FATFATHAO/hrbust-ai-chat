@@ -1,17 +1,18 @@
-import path from 'node:path'
-import { loadEnv } from 'vite'
-import { defineConfig } from 'vitest/config'
+import path from "node:path";
+import { loadEnv } from "vite";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig(({ mode }) => ({
+  base: "/",
   test: {
     globals: true,
-    environment: 'node',
+    environment: "node",
     env: {
-      ...loadEnv(mode, process.cwd(), ''),
-      NODE_ENV: 'test',
+      ...loadEnv(mode, process.cwd(), ""),
+      NODE_ENV: "test",
     },
-    include: ['src/**/*.{test,spec}.{ts,tsx}', 'test/integration/**/*.{test,spec}.{ts,tsx}'],
-    exclude: ['node_modules', 'dist', 'release', '.erb'],
+    include: ["src/**/*.{test,spec}.{ts,tsx}", "test/integration/**/*.{test,spec}.{ts,tsx}"],
+    exclude: ["node_modules", "dist", "release", ".erb"],
     setupFiles: [],
     testTimeout: 10000,
     hookTimeout: 10000,
@@ -21,9 +22,9 @@ export default defineConfig(({ mode }) => ({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src/renderer'),
-      src: path.resolve(__dirname, './src'),
-      '@shared': path.resolve(__dirname, 'src/shared'),
+      "@": path.resolve(__dirname, "./src/renderer"),
+      src: path.resolve(__dirname, "./src"),
+      "@shared": path.resolve(__dirname, "src/shared"),
     },
   },
-}))
+}));

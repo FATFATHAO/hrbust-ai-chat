@@ -1,4 +1,4 @@
-import { ActionIcon, Box, Flex, Indicator, Stack, Text } from '@mantine/core'
+import { ActionIcon, Box, Flex, Indicator, Stack, Text } from "@mantine/core";
 import {
   IconAdjustmentsHorizontal,
   IconBook,
@@ -12,18 +12,25 @@ import {
   IconMessages,
   IconSparkles,
   IconWorldWww,
-} from '@tabler/icons-react'
-import { createFileRoute, Link, Outlet, useCanGoBack, useRouter, useRouterState } from '@tanstack/react-router'
-import clsx from 'clsx'
-import { useTranslation } from 'react-i18next'
-import { Toaster } from 'sonner'
-import Divider from '@/components/common/Divider'
-import Page from '@/components/layout/Page'
-import { ScalableIcon } from '@/components/common/ScalableIcon'
-import { useProviders } from '@/hooks/useProviders'
-import { useIsSmallScreen } from '@/hooks/useScreenChange'
-import platform from '@/platform'
-import { featureFlags } from '@/utils/feature-flags'
+} from "@tabler/icons-react";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  useCanGoBack,
+  useRouter,
+  useRouterState,
+} from "@tanstack/react-router";
+import clsx from "clsx";
+import { useTranslation } from "react-i18next";
+import { Toaster } from "sonner";
+import Divider from "@/components/common/Divider";
+import { ScalableIcon } from "@/components/common/ScalableIcon";
+import Page from "@/components/layout/Page";
+import { useProviders } from "@/hooks/useProviders";
+import { useIsSmallScreen } from "@/hooks/useScreenChange";
+import platform from "@/platform";
+import { featureFlags } from "@/utils/feature-flags";
 
 const ITEMS = [
   // {
@@ -31,11 +38,11 @@ const ITEMS = [
   //   label: 'Chatbox AI',
   //   icon: <IconSparkles className="w-full h-full" />,
   // },
-  {
-    key: 'provider',
-    label: 'Model Provider',
-    icon: <IconCategory className="w-full h-full" />,
-  },
+  // {
+  //   key: 'provider',
+  //   label: 'Model Provider',
+  //   icon: <IconCategory className="w-full h-full" />,
+  // },
   // {
   //   key: 'default-models',
   //   label: 'Default Models',
@@ -60,48 +67,48 @@ const ITEMS = [
   //   label: 'Knowledge Base',
   //   icon: <IconBook className="w-full h-full" />,
   // },
-  {
-    key: 'document-parser',
-    label: 'Document Parser',
-    icon: <IconFileText className="w-full h-full" />,
-  },
-  {
-    key: 'chat',
-    label: 'Chat Settings',
-    icon: <IconMessages className="w-full h-full" />,
-  },
-  ...(platform.type === 'mobile'
+  // {
+  //   key: 'document-parser',
+  //   label: 'Document Parser',
+  //   icon: <IconFileText className="w-full h-full" />,
+  // },
+  // {
+  //   key: "chat",
+  //   label: "Chat Settings",
+  //   icon: <IconMessages className="w-full h-full" />,
+  // },
+  ...(platform.type === "mobile"
     ? []
     : [
-      {
-        key: 'hotkeys',
-        label: 'Keyboard Shortcuts',
-        icon: <IconKeyboard className="w-full h-full" />,
-      },
-    ]),
+        {
+          key: "hotkeys",
+          label: "Keyboard Shortcuts",
+          icon: <IconKeyboard className="w-full h-full" />,
+        },
+      ]),
   {
-    key: 'general',
-    label: 'General Settings',
+    key: "general",
+    label: "General Settings",
     icon: <IconAdjustmentsHorizontal className="w-full h-full" />,
   },
-]
+];
 
-export const Route = createFileRoute('/settings')({
+export const Route = createFileRoute("/settings")({
   component: RouteComponent,
-})
+});
 
 export function RouteComponent() {
-  const { t } = useTranslation()
-  const router = useRouter()
-  const routerState = useRouterState()
-  const canGoBack = useCanGoBack()
-  const isSmallScreen = useIsSmallScreen()
+  const { t } = useTranslation();
+  const router = useRouter();
+  const routerState = useRouterState();
+  const canGoBack = useCanGoBack();
+  const isSmallScreen = useIsSmallScreen();
 
   return (
     <Page
-      title={t('Settings')}
+      title={t("Settings")}
       left={
-        isSmallScreen && routerState.location.pathname !== '/settings' && canGoBack ? (
+        isSmallScreen && routerState.location.pathname !== "/settings" && canGoBack ? (
           <ActionIcon
             className="controls"
             variant="subtle"
@@ -118,27 +125,27 @@ export function RouteComponent() {
       <SettingsRoot />
       <Toaster richColors position="bottom-center" />
     </Page>
-  )
+  );
 }
 
 export function SettingsRoot() {
-  const { t } = useTranslation()
-  const routerState = useRouterState()
-  const key = routerState.location.pathname.split('/')[2]
-  const isSmallScreen = useIsSmallScreen()
-  const { providers: availableProviders } = useProviders()
-  const isChatboxAIActivated = availableProviders.some((p) => p.id === 'chatbox-ai')
+  const { t } = useTranslation();
+  const routerState = useRouterState();
+  const key = routerState.location.pathname.split("/")[2];
+  const isSmallScreen = useIsSmallScreen();
+  const { providers: availableProviders } = useProviders();
+  const isChatboxAIActivated = availableProviders.some((p) => p.id === "chatbox-ai");
 
   return (
     <Flex flex={1} h="100%" miw={isSmallScreen ? undefined : 800}>
-      {(!isSmallScreen || routerState.location.pathname === '/settings') && (
+      {(!isSmallScreen || routerState.location.pathname === "/settings") && (
         <Stack
-          p={isSmallScreen ? 0 : 'xs'}
-          gap={isSmallScreen ? 0 : 'xs'}
+          p={isSmallScreen ? 0 : "xs"}
+          gap={isSmallScreen ? 0 : "xs"}
           maw={isSmallScreen ? undefined : 256}
           className={clsx(
-            'border-solid border-0 border-r overflow-auto border-chatbox-border-primary',
-            isSmallScreen ? 'w-full border-r-0' : 'flex-[1_0_auto]'
+            "border-solid border-0 border-r overflow-auto border-chatbox-border-primary",
+            isSmallScreen ? "w-full border-r-0" : "flex-[1_0_auto]",
           )}
         >
           {ITEMS.map((item) => (
@@ -149,20 +156,20 @@ export function SettingsRoot() {
               }
               key={item.key}
               to={`/settings/${item.key}` as any}
-              className={'block no-underline w-full'}
+              className={"block no-underline w-full"}
             >
               <Flex
                 component="span"
                 gap="xs"
                 p="md"
                 pr="xl"
-                py={isSmallScreen ? 'sm' : undefined}
+                py={isSmallScreen ? "sm" : undefined}
                 align="center"
-                c={item.key === key ? 'chatbox-brand' : 'chatbox-secondary'}
-                bg={item.key === key ? 'var(--chatbox-background-brand-secondary)' : 'transparent'}
+                c={item.key === key ? "chatbox-brand" : "chatbox-secondary"}
+                bg={item.key === key ? "var(--chatbox-background-brand-secondary)" : "transparent"}
                 className={clsx(
-                  ' cursor-pointer select-none rounded-md',
-                  item.key === key ? '' : 'hover:!bg-chatbox-background-gray-secondary'
+                  " cursor-pointer select-none rounded-md",
+                  item.key === key ? "" : "hover:!bg-chatbox-background-gray-secondary",
                 )}
               >
                 <Box component="span" flex="0 0 auto" w={20} h={20} mr="xs">
@@ -172,15 +179,19 @@ export function SettingsRoot() {
                   flex={1}
                   lineClamp={1}
                   span={true}
-                  className={`!text-inherit ${isSmallScreen ? 'min-h-[32px] leading-[32px]' : ''}`}
+                  className={`!text-inherit ${isSmallScreen ? "min-h-[32px] leading-[32px]" : ""}`}
                 >
                   {t(item.label)}
                 </Text>
-                {item.key === 'chatbox-ai' && isChatboxAIActivated && (
+                {item.key === "chatbox-ai" && isChatboxAIActivated && (
                   <Indicator size={8} color="chatbox-success" className="ml-auto" />
                 )}
                 {isSmallScreen && (
-                  <ScalableIcon icon={IconChevronRight} size={20} className="!text-chatbox-tint-tertiary" />
+                  <ScalableIcon
+                    icon={IconChevronRight}
+                    size={20}
+                    className="!text-chatbox-tint-tertiary"
+                  />
                 )}
               </Flex>
 
@@ -189,11 +200,11 @@ export function SettingsRoot() {
           ))}
         </Stack>
       )}
-      {!(isSmallScreen && routerState.location.pathname === '/settings') && (
+      {!(isSmallScreen && routerState.location.pathname === "/settings") && (
         <Box flex="1 1 80%" className="overflow-auto">
           <Outlet />
         </Box>
       )}
     </Flex>
-  )
+  );
 }

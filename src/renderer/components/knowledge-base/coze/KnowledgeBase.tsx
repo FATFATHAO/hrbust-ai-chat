@@ -431,7 +431,6 @@ const cozeApi = {
     }
   },
 
-  // 删除文档（此接口存在但暂无法使用，因为 file_list 不包含 document_id）
   async deleteDocuments(datasetId: string, documentIds: string[]): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/open_api/knowledge/document/delete`, {
       method: "POST",
