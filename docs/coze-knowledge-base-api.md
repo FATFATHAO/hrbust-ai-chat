@@ -221,6 +221,41 @@ interface Document {
 | documentsLoading | boolean | 文档列表加载状态 |
 | documentsTotal | number | 文档总数 |
 
+## 文档状态轮询机制
+
+### 实现位置
+`src/renderer/components/knowledge-base/coze/KnowledgeBase.tsx` 第 617-632 行
+
+### 轮询逻辑
+上传文档后，Coze API 会异步处理文档（status=0 表示处理中）。前端通过轮询机制自动刷新文档状态：
+
+```typescript
+// 文档处理状态轮询 - 当有文档处于处理中状态时持续刷新
+useEffect(() => {
+  if (!selectedDataset?.dataset_id) return;
+
+  // 检查是否有处理中的文档 (status=0)
+  const hasProcessingDocs = documents.some((doc) => doc.status === 0);
+
+  if (!hasProcessingDocs) return;
+
+  // 每 2 秒刷新一次文档列表，直到没有处理中的文档
+  const pollInterval = setInterval(() => {
+    fetchDocuments(selectedDataset.dataset_id, true);
+  }, 2000);
+
+  return () => clearInterval(pollInterval);
+}, [selectedDataset?.dataset_id, documents]);
+```
+
+### 行为说明
+- 当知识库中存在任意文档的 `status === 0`（处理中）时，每 2 秒自动调用 `fetchDocuments` 刷新文档列表
+- 当所有文档都变为终态（已完成/已禁用/已删除/失败）时，轮询自动停止
+- 切换知识库时，如果新知识库没有处理中的文档，轮询不会启动
+
+### 与本地知识库的区别
+本地知识库（`KnowledgeBaseDocuments.tsx`）同样有 2 秒轮询机制，但检查的状态包括 `pending`、`processing`、`paused`，轮询实现方式一致。
+
 ## 辅助函数
 
 ```typescript

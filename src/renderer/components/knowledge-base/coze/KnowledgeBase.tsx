@@ -221,7 +221,7 @@ const cozeApi = {
           parsing_type: 0,
           image_extraction: true,
           table_extraction: true,
-          image_ocr: false,
+          image_ocr: true,
         },
       }),
     });
@@ -344,7 +344,7 @@ const cozeApi = {
           parsing_type: 0,
           image_extraction: true,
           table_extraction: true,
-          image_ocr: false,
+          image_ocr: true,
         },
       }),
     });
@@ -613,6 +613,23 @@ const KnowledgeBasePage: React.FC = () => {
     }, 500);
     return () => clearInterval(interval);
   }, [uploadQueue]);
+
+  // 文档处理状态轮询 - 当有文档处于处理中状态时持续刷新
+  useEffect(() => {
+    if (!selectedDataset?.dataset_id) return;
+
+    // 检查是否有处理中的文档 (status=0)
+    const hasProcessingDocs = documents.some((doc) => doc.status === 0);
+
+    if (!hasProcessingDocs) return;
+
+    // 每 2 秒刷新一次文档列表，直到没有处理中的文档
+    const pollInterval = setInterval(() => {
+      fetchDocuments(selectedDataset.dataset_id, true);
+    }, 2000);
+
+    return () => clearInterval(pollInterval);
+  }, [selectedDataset?.dataset_id, documents]);
 
   // 获取文档列表
   const fetchDocuments = useCallback(
