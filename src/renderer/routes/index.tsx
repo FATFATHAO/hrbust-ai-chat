@@ -3,9 +3,10 @@ import { ActionIcon, Avatar, Box, Button, Divider, Flex, Paper, ScrollArea, Spac
 import type { CopilotDetail, Session } from '@shared/types'
 import { ModelProviderEnum } from '@shared/types'
 import { IconChevronLeft, IconChevronRight, IconX } from '@tabler/icons-react'
-import { createFileRoute, useRouterState } from '@tanstack/react-router'
+import { createFileRoute, useNavigate, useRouterState } from '@tanstack/react-router'
 import { zodValidator } from '@tanstack/zod-adapter'
 import clsx from 'clsx'
+import { useAtomValue } from 'jotai'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { v4 as uuidv4 } from 'uuid'
@@ -19,6 +20,7 @@ import { useProviders } from '@/hooks/useProviders'
 import { useIsSmallScreen } from '@/hooks/useScreenChange'
 import { router } from '@/router'
 import { createSession as createSessionStore } from '@/stores/chatStore'
+import { difyLoggedInAtom } from '@/stores/atoms'
 import { submitNewUserMessage, switchCurrentSession } from '@/stores/sessionActions'
 import { initEmptyChatSession } from '@/stores/sessionHelpers'
 import { useUIStore } from '@/stores/uiStore'
@@ -33,6 +35,19 @@ export const Route = createFileRoute('/')({
 })
 
 function Index() {
+  const isLoggedIn = useAtomValue(difyLoggedInAtom)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      navigate({ to: '/login', replace: true })
+    }
+  }, [isLoggedIn, navigate])
+
+  if (!isLoggedIn) {
+    return null
+  }
+
   const { t } = useTranslation()
   const isSmallScreen = useIsSmallScreen()
 

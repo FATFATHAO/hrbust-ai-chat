@@ -17,3 +17,5 @@ export const USE_LOCAL_CHATBOX = process.env.USE_LOCAL_CHATBOX || ''
 export const USE_BETA_CHATBOX = process.env.USE_BETA_CHATBOX || ''
 
 export const NODE_ENV = process.env.NODE_ENV || 'development'
+
+export const DIFY_API_HOST = process.env.DIFY_API_HOST || '10.1.100.110:8081'

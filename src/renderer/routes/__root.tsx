@@ -156,52 +156,39 @@ function Root() {
   return (
     <Box className="box-border App" spellCheck={spellCheck} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       {platform.type === 'desktop' && (getOS() === 'Windows' || getOS() === 'Linux') && <ExitFullscreenButton />}
-      <Grid container className="h-full">
-        <Sidebar />
-        <Box
-          className="h-full w-full"
-          sx={{
-            flexGrow: 1,
-            ...(showSidebar
-              ? language === 'ar'
-                ? { paddingRight: { sm: `${sidebarWidth}px` } }
-                : { paddingLeft: { sm: `${sidebarWidth}px` } }
-              : {}),
-          }}
-        >
-          <ErrorBoundary name="main">
-            <Outlet />
-          </ErrorBoundary>
-        </Box>
-      </Grid>
-      {/* 对话设置 */}
-      {/* <AppStoreRatingDialog /> */}
-      {/* 代码预览 */}
-      {/* <ArtifactDialog /> */}
-      {/* 对话列表清理 */}
-      {/* <ChatConfigWindow /> */}
-      {/* 似乎未使用 */}
-      {/* <CleanWidnow /> */}
-      {/* 对话列表清理 */}
-      {/* <ClearConversationListWindow /> */}
-      {/* 导出聊天记录 */}
-      {/* <ExportChatDialog /> */}
-      {/* 编辑消息 */}
-      {/* <MessageEditDialog /> */}
-      {/* 添加链接 */}
-      {/* <OpenAttachLinkDialog /> */}
-      {/* 图片预览 */}
-      <PictureDialog />
-      {/* 似乎是从后端拉一个弹窗的配置 */}
-      <RemoteDialogWindow />
-      {/* 手机端举报内容 */}
-      {/* <ReportContentDialog /> */}
-      {/* 搜索 */}
-      <SearchDialog />
-      {/* 没有配置模型时的欢迎弹窗 */}
-      {/* <WelcomeDialog /> */}
-      <Toasts /> {/* mui */}
-      <SettingsModal />
+      {location.pathname === '/login' ? (
+        <Outlet />
+      ) : (
+        <>
+          <Grid container className="h-full">
+            <Sidebar />
+            <Box
+              className="h-full w-full"
+              sx={{
+                flexGrow: 1,
+                ...(showSidebar
+                  ? language === 'ar'
+                    ? { paddingRight: { sm: `${sidebarWidth}px` } }
+                    : { paddingLeft: { sm: `${sidebarWidth}px` } }
+                  : {}),
+              }}
+            >
+              <ErrorBoundary name="main">
+                <Outlet />
+              </ErrorBoundary>
+            </Box>
+          </Grid>
+        </>
+      )}
+      {location.pathname !== '/login' && (
+        <>
+          <PictureDialog />
+          <RemoteDialogWindow />
+          <SearchDialog />
+          <Toasts />
+          <SettingsModal />
+        </>
+      )}
     </Box>
   )
 }
