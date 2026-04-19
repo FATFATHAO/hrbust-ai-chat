@@ -52,24 +52,6 @@ function LoginPage() {
           throw new Error(t('Please enter email and password'))
         }
 
-        if (email === 'test@test.com' && password === 'test123') {
-          console.log(' 测试账号登录成功')
-          localStorage.setItem('remember-me', JSON.stringify(rememberMe))
-          if (rememberMe) {
-            localStorage.setItem('saved-email', email)
-          } else {
-            localStorage.removeItem('saved-email')
-          }
-          setDifyLoginAction({
-            id: 'test-user',
-            name: 'Test User',
-            email: 'test@test.com',
-          })
-          navigate({ to: '/', replace: true })
-          setLoading(false)
-          return
-        }
-
         await difyLogin({
           email,
           password,
