@@ -1,7 +1,7 @@
 import { Button, TextInput, PasswordInput, Alert } from '@mantine/core'
 import { IconAlertCircle, IconShieldLock, IconRobot } from '@tabler/icons-react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { difyLoginActionAtom, difyLogoutActionAtom, difyLoggedInAtom } from '@/stores/atoms'
@@ -55,6 +55,13 @@ function LoginPage() {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // 如果已登录，自动跳转到主页
+  useEffect(() => {
+    if (isLoggedIn) {
+      navigate({ to: '/', replace: true })
+    }
+  }, [isLoggedIn, navigate])
 
   const handleLogout = useCallback(() => {
     setDifyLogoutAction()
