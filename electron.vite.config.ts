@@ -113,7 +113,7 @@ export default defineConfig(({ mode }) => {
         'process.env.CHATBOX_BUILD_PLATFORM': JSON.stringify(process.env.CHATBOX_BUILD_PLATFORM || 'unknown'),
         'process.env.USE_LOCAL_API': JSON.stringify(process.env.USE_LOCAL_API || ''),
         'process.env.USE_BETA_API': JSON.stringify(process.env.USE_BETA_API || ''),
-        'process.env.DIFY_API_HOST': JSON.stringify(process.env.DIFY_API_HOST || '10.1.100.110:8081'),
+        'process.env.DIFY_API_HOST': JSON.stringify(process.env.DIFY_API_HOST || '127.0.0.1:8081'),
       },
     },
     preload: {
@@ -229,7 +229,7 @@ export default defineConfig(({ mode }) => {
         cors: true,
         proxy: {
           '/console': {
-            target: 'http://10.1.100.110:8081',
+            target: `http://${process.env.DIFY_API_HOST || '127.0.0.1:8081'}`,
             changeOrigin: true,
             secure: false,
             ws: true,
@@ -246,7 +246,7 @@ export default defineConfig(({ mode }) => {
             },
           },
           '/v1': {
-            target: 'http://10.1.100.110:8081',
+            target: `http://${process.env.DIFY_API_HOST || '127.0.0.1:8081'}`,
             changeOrigin: true,
             secure: false,
             ws: true,
@@ -260,7 +260,7 @@ export default defineConfig(({ mode }) => {
         'process.env.CHATBOX_BUILD_PLATFORM': JSON.stringify(process.env.CHATBOX_BUILD_PLATFORM || 'unknown'),
         'process.env.USE_LOCAL_API': JSON.stringify(process.env.USE_LOCAL_API || ''),
         'process.env.USE_BETA_API': JSON.stringify(process.env.USE_BETA_API || ''),
-        'process.env.DIFY_API_HOST': JSON.stringify(process.env.DIFY_API_HOST || '10.1.100.110:8081'),
+        'process.env.DIFY_API_HOST': JSON.stringify(config.DIFY_API_HOST),
       },
       optimizeDeps: {
         include: ['mermaid'],
