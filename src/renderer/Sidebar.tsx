@@ -17,6 +17,7 @@ import {
   IconCode,
   IconInfoCircle,
   IconLayoutSidebarLeftCollapse,
+  IconLogout,
   IconMessageChatbot,
   IconPhotoPlus,
   IconSettingsFilled,
@@ -26,6 +27,7 @@ import { useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSetAtom } from "jotai";
 import Divider from "./components/common/Divider";
 import { ScalableIcon } from "./components/common/ScalableIcon";
 import ThemeSwitchButton from "./components/dev/ThemeSwitchButton";
@@ -41,6 +43,8 @@ import icon from "./static/Data-Development-Logo.png";
 import { useLanguage } from "./stores/settingsStore";
 import { useUIStore } from "./stores/uiStore";
 import { CHATBOX_BUILD_PLATFORM } from "./variables";
+import { difyLogoutActionAtom, difyLoggedInAtom } from "./stores/atoms";
+import { useAtomValue } from "jotai";
 
 export default function Sidebar() {
   const { t } = useTranslation();
@@ -50,6 +54,16 @@ export default function Sidebar() {
   const showSidebar = useUIStore((s) => s.showSidebar);
   const setShowSidebar = useUIStore((s) => s.setShowSidebar);
   const setSidebarWidth = useUIStore((s) => s.setSidebarWidth);
+  const isLoggedIn = useAtomValue(difyLoggedInAtom)
+  const setDifyLogoutAction = useSetAtom(difyLogoutActionAtom)
+
+  const handleLogout = useCallback(() => {
+    setDifyLogoutAction()
+    localStorage.removeItem('dify-user-tokens')
+    localStorage.removeItem('saved-email')
+    localStorage.removeItem('remember-me')
+    navigate({ to: '/login', replace: true })
+  }, [setDifyLogoutAction, navigate])
 
   const sessionListViewportRef = useRef<HTMLDivElement>(null);
 
@@ -261,6 +275,17 @@ export default function Sidebar() {
             variant="light"
             p="xs"
           />
+          {isLoggedIn && (
+            <NavLink
+              c="chatbox-error"
+              className="rounded"
+              label={t("Sign Out")}
+              leftSection={<ScalableIcon icon={IconLogout} size={20} />}
+              onClick={handleLogout}
+              variant="light"
+              p="xs"
+            />
+          )}
           {/* {FORCE_ENABLE_DEV_PAGES && ( */}
           {/*   <NavLink */}
           {/*     c="chatbox-secondary" */}

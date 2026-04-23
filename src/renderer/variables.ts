@@ -17,3 +17,10 @@ export const USE_LOCAL_CHATBOX = process.env.USE_LOCAL_CHATBOX || ''
 export const USE_BETA_CHATBOX = process.env.USE_BETA_CHATBOX || ''
 
 export const NODE_ENV = process.env.NODE_ENV || 'development'
+
+// Dify API 主机地址
+// 所有 Dify API 请求都使用这个地址
+export const DIFY_API_HOST = process.env.DIFY_API_HOST || '127.0.0.1:8081'
+
+// 完整的 API URL（带协议）
+export const API_BASE_URL = `http://${DIFY_API_HOST}`

@@ -113,6 +113,7 @@
     "@epic-web/cachified": "^5.5.1",
     "@faker-js/faker": "^8.0.2",
     "@mantine/core": "^7.17.7",
+    "@mantine/dropzone": "^7.17.7",
     "@mantine/form": "^7.17.7",
     "@mantine/hooks": "^7.17.7",
     "@mantine/modals": "^7.17.7",

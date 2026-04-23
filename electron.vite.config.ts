@@ -113,6 +113,7 @@ export default defineConfig(({ mode }) => {
         'process.env.CHATBOX_BUILD_PLATFORM': JSON.stringify(process.env.CHATBOX_BUILD_PLATFORM || 'unknown'),
         'process.env.USE_LOCAL_API': JSON.stringify(process.env.USE_LOCAL_API || ''),
         'process.env.USE_BETA_API': JSON.stringify(process.env.USE_BETA_API || ''),
+        'process.env.DIFY_API_HOST': JSON.stringify(process.env.DIFY_API_HOST || '127.0.0.1:8081'),
       },
     },
     preload: {
@@ -225,6 +226,32 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 1212,
         strictPort: true,
+        cors: true,
+        proxy: {
+          '/console': {
+            target: `http://${process.env.DIFY_API_HOST || '127.0.0.1:8081'}`,
+            changeOrigin: true,
+            secure: false,
+            ws: true,
+            configure: (proxy, _options) => {
+              proxy.on('error', (err, _req, _res) => {
+                console.log('proxy error', err);
+              });
+              proxy.on('proxyReq', (proxyReq, req, _res) => {
+                console.log('Sending Request to the Target:', req.method, req.url);
+              });
+              proxy.on('proxyRes', (proxyRes, req, _res) => {
+                console.log('Received Response from the Target:', proxyRes.statusCode, req.url);
+              });
+            },
+          },
+          '/v1': {
+            target: `http://${process.env.DIFY_API_HOST || '127.0.0.1:8081'}`,
+            changeOrigin: true,
+            secure: false,
+            ws: true,
+          },
+        },
       },
       define: {
         'process.type': '"renderer"',
@@ -233,6 +260,7 @@ export default defineConfig(({ mode }) => {
         'process.env.CHATBOX_BUILD_PLATFORM': JSON.stringify(process.env.CHATBOX_BUILD_PLATFORM || 'unknown'),
         'process.env.USE_LOCAL_API': JSON.stringify(process.env.USE_LOCAL_API || ''),
         'process.env.USE_BETA_API': JSON.stringify(process.env.USE_BETA_API || ''),
+        'process.env.DIFY_API_HOST': JSON.stringify(config.DIFY_API_HOST),
       },
       optimizeDeps: {
         include: ['mermaid'],

@@ -178,3 +178,6 @@ electron-builder.env
 
 .env.sentry-build-plugin
 .sisyphus/
+
+# Trae IDE
+.trae/
